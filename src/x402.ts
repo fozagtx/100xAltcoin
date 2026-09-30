@@ -144,10 +144,16 @@ export function createPayments(cfg: Config, facilitator?: FacilitatorClient): Pa
       const server = new x402ResourceServer(client);
       server.register(net as Network, new ExactAvmScheme());
       server.registerExtension(bazaarResourceServerExtension);
-      const mw = paymentMiddleware(buildRoutes(cfg, net), server, {
-        appName: SERVICE_NAME,
-        testnet: cfg.x402.networkName === "testnet",
-      });
+      // Sync with the facilitator here, where a failure becomes a clean 503, rather than
+      // letting the middleware do it in the background and answer 500 to the first callers.
+      await server.initialize();
+      const mw = paymentMiddleware(
+        buildRoutes(cfg, net),
+        server,
+        { appName: SERVICE_NAME, testnet: cfg.x402.networkName === "testnet" },
+        undefined,
+        false,
+      );
       network = net;
       return { mw, network: net };
     })().catch((err) => {

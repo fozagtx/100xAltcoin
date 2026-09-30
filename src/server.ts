@@ -4,8 +4,9 @@ import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
 import { CmcClient } from "./cmc.js";
 import { CHALLENGE_TAG, creditWarning, loadConfig, projectedCreditsPerDay } from "./config.js";
-import { loadHistory, saveHistory } from "./history-file.js";
+import { cleanStaleTemps, loadHistory, saveHistory } from "./history-file.js";
 import { Market } from "./market.js";
+import { isOptedIn } from "./optin.js";
 import { readVersion } from "./version.js";
 import { createPayments, type Payments } from "./x402.js";
 
@@ -27,6 +28,8 @@ const market = new Market(new CmcClient(cfg.cmcBaseUrl, cfg.cmcApiKey, cfg.cmcRp
 });
 
 if (cfg.historyFile) {
+  const stale = await cleanStaleTemps(cfg.historyFile);
+  if (stale) log("info", "removed leftover history temp files", { count: stale });
   try {
     const st = await loadHistory(cfg.historyFile);
     if (st) {
@@ -70,16 +73,39 @@ if (cfg.x402.enabled) {
   log("warn", "X402_ENABLED=false: every paid endpoint is FREE; local development only");
 }
 
-const app = createApp({ config: cfg, market, payments, version });
+const payToStatus: { optedIn: boolean | null } = { optedIn: null };
+const app = createApp({ config: cfg, market, payments, payToStatus, version });
 market.start();
 const saver = setInterval(() => void persist(), cfg.historySaveEveryMs);
 // Once CMC has told us the plan limit, say loudly if the chosen preset can't fit in it.
-const creditCheck = setInterval(() => {
+function checkCredits() {
   const st = market.status();
   const warning = creditWarning(st.projectedCreditsPerDay, st.creditLimitMonthly, cfg.preset);
   if (warning) log("warn", warning, { credit_limit_monthly: st.creditLimitMonthly, projected_credits_per_day: st.projectedCreditsPerDay });
-}, 6 * 3_600_000);
-setTimeout(() => creditCheck.refresh(), 30_000).unref();
+}
+const creditCheck = setInterval(checkCredits, 6 * 3_600_000);
+setTimeout(checkCredits, 30_000).unref();
+
+// A payout address that is not opted in to USDC earns nothing while everything looks healthy.
+let optInTimer: NodeJS.Timeout | undefined;
+async function checkOptIn() {
+  payToStatus.optedIn = await isOptedIn(cfg.algodUrl, cfg.x402.payTo, cfg.x402.usdcAssetId);
+  if (payToStatus.optedIn === false) {
+    log("error", "PAY_TO_ADDRESS is not opted in to USDC: every payment will fail to settle until it is", {
+      pay_to: cfg.x402.payTo,
+      usdc_asa: cfg.x402.usdcAssetId,
+      fix: `opt the account in to USDC (ASA ${cfg.x402.usdcAssetId}) in your wallet app`,
+    });
+  } else if (payToStatus.optedIn === true) {
+    log("info", "PAY_TO_ADDRESS is opted in to USDC", { pay_to: cfg.x402.payTo });
+    clearInterval(optInTimer);
+  }
+}
+if (cfg.x402.enabled) {
+  setTimeout(() => void checkOptIn(), 5_000).unref();
+  optInTimer = setInterval(() => void checkOptIn(), 15 * 60_000);
+  optInTimer.unref();
+}
 
 const server = serve({ fetch: app.fetch, port: cfg.port }, (info) => {
   log("info", "100xAltcoin listening", {
@@ -97,12 +123,25 @@ const server = serve({ fetch: app.fetch, port: cfg.port }, (info) => {
   });
 });
 
+// Render proxies reuse connections for longer than Node's 5 s default keep-alive.
+const httpServer = server as unknown as import("node:http").Server;
+httpServer.keepAliveTimeout = 65_000;
+httpServer.headersTimeout = 66_000;
+
+let shuttingDown = false;
 async function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
   log("info", "shutting down", { signal });
   clearInterval(saver);
   clearInterval(creditCheck);
+  clearInterval(optInTimer);
   market.stop();
-  server.close();
+  // Stop accepting connections, but let in-flight requests finish: a paid request may be
+  // waiting on the facilitator to settle, and cutting it off would charge the payer for nothing.
+  const closed = new Promise<void>((resolve) => httpServer.close(() => resolve()));
+  httpServer.closeIdleConnections();
+  await Promise.race([closed, new Promise<void>((resolve) => setTimeout(resolve, 25_000).unref())]);
   await persist();
   process.exit(0);
 }

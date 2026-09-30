@@ -58,7 +58,7 @@ export const ENDPOINTS: Endpoint[] = [
     name: "screen",
     path: "/v1/screen",
     description:
-      "Coin screener over the CoinMarketCap top 3000: filter by market cap, 24h volume, turnover, 1h/24h/7d price change, tags and listing age. By default returns the 10 highest-turnover coins under 50M USD market cap.",
+      "Coin screener over the tracked CoinMarketCap top coins: filter by market cap, 24h volume, turnover, 1h/24h/7d price change, tags and listing age. By default returns the 10 highest-turnover coins under 50M USD market cap.",
     params: [
       { name: "min_market_cap", type: "number", description: "Minimum market cap in USD." },
       { name: "max_market_cap", type: "number", default: 50_000_000, min: 0, description: "Maximum market cap in USD; 0 means no cap." },

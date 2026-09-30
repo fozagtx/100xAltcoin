@@ -46,6 +46,8 @@ export interface Config {
   /** How many days of hourly rank history to keep (1-7). */
   historyDays: number;
   publicUrl: string;
+  /** Algorand node used for the boot-time USDC opt-in check of PAY_TO_ADDRESS. */
+  algodUrl: string;
   x402: {
     enabled: boolean;
     networkName: "mainnet" | "testnet";
@@ -188,6 +190,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     historySaveEveryMs: dur("HISTORY_SAVE_EVERY", 30 * 60_000, 10_000),
     historyDays: int("HISTORY_DAYS", 7, 1, 7),
     publicUrl,
+    algodUrl: str("ALGOD_URL", mainnet ? "https://mainnet-api.algonode.cloud" : "https://testnet-api.algonode.cloud").replace(/\/+$/, ""),
     x402: {
       enabled,
       networkName: mainnet ? "mainnet" : "testnet",

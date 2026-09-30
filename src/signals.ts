@@ -65,9 +65,10 @@ const round = (x: number, dp: number) => Math.round(x * 10 ** dp) / 10 ** dp;
 function withDefaults(o: ScoreOptions) {
   return {
     now: o.now ?? Date.now(),
-    maxMarketCap: o.maxMarketCap && o.maxMarketCap > 0 ? o.maxMarketCap : 50e6,
-    minMarketCap: o.minMarketCap && o.minMarketCap > 0 ? o.minMarketCap : 1e6,
-    minVolume24h: o.minVolume24h && o.minVolume24h > 0 ? o.minVolume24h : 100e3,
+    // Unset takes the default; an explicit 0 means "no bound" (as in /v1/screen).
+    maxMarketCap: o.maxMarketCap === undefined ? 50e6 : o.maxMarketCap > 0 ? o.maxMarketCap : Infinity,
+    minMarketCap: o.minMarketCap === undefined ? 1e6 : Math.max(0, o.minMarketCap),
+    minVolume24h: o.minVolume24h === undefined ? 100e3 : Math.max(0, o.minVolume24h),
     listedWithinDays: o.listedWithinDays ?? 0,
     excludeTags: o.excludeTags ?? DEFAULT_EXCLUDED,
   };

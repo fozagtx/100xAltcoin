@@ -107,7 +107,7 @@ Official guide: [The Global x402 Challenge is live](https://algorand.co/blog/the
    - **Use one domain.** `PUBLIC_URL` defaults to Render's `https://<name>.onrender.com`. If
      you add a custom domain, set `PUBLIC_URL` to it and use only that one; a merchant account
      must not span domains.
-3. **Check the live 402:** `npm run check -- https://<your-host>` must pass on every endpoint
+3. **Check the live 402** (and `/v1/status`: `payments.pay_to_opted_in_usdc` must be `true`; the service logs an error at boot if your payout address is not opted in to USDC): `npm run check -- https://<your-host>` must pass on every endpoint
    (MainNet, ASA 31566704, `x402-global-challenge` tag, Bazaar extension, fee payer present).
 4. **Make real MainNet payments** from a different wallet holding a little USDC (and the
    small ALGO minimum balance; network fees are sponsored by the facilitator). Each route is

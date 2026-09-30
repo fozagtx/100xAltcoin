@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { gunzip, gzip } from "node:zlib";
@@ -37,8 +37,29 @@ export async function saveHistory(path: string, state: Omit<HistoryState, "versi
   for (const [id, ring] of Object.entries(state.history)) history[id] = ring.map(pack);
   const json = JSON.stringify({ version: VERSION, savedAt: state.savedAt, publishedAt: state.publishedAt, quotes: state.quotes, history });
   const tmp = join(dirname(path), `.history-${process.pid}-${Date.now()}.tmp`);
-  await writeFile(tmp, await gzipAsync(json));
-  await rename(tmp, path);
+  try {
+    await writeFile(tmp, await gzipAsync(json));
+    await rename(tmp, path);
+  } catch (err) {
+    await rm(tmp, { force: true }); // a failed save must not leave a temp file behind (it would repeat every save)
+    throw err;
+  }
+}
+
+/** Removes leftover temp files from saves that were cut off (for example by a kill mid-write). */
+export async function cleanStaleTemps(path: string): Promise<number> {
+  let removed = 0;
+  try {
+    for (const name of await readdir(dirname(path))) {
+      if (/^\.history-.*\.tmp$/.test(name)) {
+        await rm(join(dirname(path), name), { force: true });
+        removed++;
+      }
+    }
+  } catch {
+    // the directory may not exist yet
+  }
+  return removed;
 }
 
 /** Reads the saved state; undefined when the file does not exist. */

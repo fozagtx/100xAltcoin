@@ -192,6 +192,27 @@ describe("x402 on Algorand", () => {
     expect(readVersion()).toMatch(/^\d+\.\d+\.\d+/);
   });
 
+  it("answers 503, not 500, when the facilitator fails on its second call at startup", async () => {
+    const cfg = testConfig();
+    const fac = fakeFacilitator();
+    let calls = 0;
+    const blip = { ...fac.client, getSupported: async () => { calls++; if (calls === 2) throw new Error("ECONNRESET"); return fac.client.getSupported(); } } as typeof fac.client;
+    const app = createApp({ config: cfg, market: stubMarket(), payments: createPayments(cfg, blip), now: () => NOW });
+    const first = await app.request("https://100xaltcoin.example.com/v1/gems");
+    expect(first.status).toBe(503);
+    expect((await first.json()).error.code).toBe("facilitator_unavailable");
+    expect((await app.request("https://100xaltcoin.example.com/v1/gems")).status).toBe(402);
+  });
+
+  it("prices and serves the trailing-slash form of a paid route", async () => {
+    const { app, fac } = setup();
+    expect((await app.request("https://100xaltcoin.example.com/v1/gems/")).status).toBe(402);
+    const sig = await paymentFor(app, "/v1/gems/?limit=1");
+    const res = await app.request("https://100xaltcoin.example.com/v1/gems/?limit=1", { headers: { "PAYMENT-SIGNATURE": sig } });
+    expect(res.status).toBe(200);
+    expect(fac.calls.settle).toBe(1);
+  });
+
   it("keeps route descriptions ASCII (the AVM paywall page base64-encodes them with btoa)", async () => {
     const { app } = setup();
     for (const path of ["/v1/gems", "/v1/screen", "/v1/climbers", "/v1/sectors", "/v1/asset", "/v1/digest"]) {

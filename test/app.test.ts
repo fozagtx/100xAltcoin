@@ -81,4 +81,26 @@ describe("paid endpoints (payments off)", () => {
     expect(Object.keys(body.paths).sort()).toEqual(["/v1/asset", "/v1/climbers", "/v1/digest", "/v1/gems", "/v1/screen", "/v1/sectors"]);
     expect(body.paths["/v1/gems"].get["x-payment"]).toMatchObject({ price: "$0.02", asset: "31566704" });
   });
+
+  it("treats 0 as no bound on gems filters", async () => {
+    const app = freeApp();
+    const dflt = (await get(app, "/v1/gems?limit=50")).body.data.map((g: { symbol: string }) => g.symbol);
+    expect(dflt).not.toContain("BIG"); // $90B is over the default $50M cap
+    const open = (await get(app, "/v1/gems?limit=50&max_market_cap=0&min_market_cap=0&min_volume=0")).body.data.map((g: { symbol: string }) => g.symbol);
+    expect(open).toContain("BIG");
+  });
+
+  it("does not reject a large-cap screen just because the default max is lower", async () => {
+    const app = freeApp();
+    const ok = await get(app, "/v1/screen?min_market_cap=100000000");
+    expect(ok.status).toBe(200);
+    expect(ok.body.data.map((i: { symbol: string }) => i.symbol)).toEqual(expect.arrayContaining(["BIG", "ETH"]));
+    const bad = await get(app, "/v1/screen?min_market_cap=100000000&max_market_cap=50000000");
+    expect(bad.status).toBe(400); // an explicit contradiction is still an error
+  });
+
+  it("serves the trailing-slash form of a route it prices", async () => {
+    const res = await freeApp().request("http://localhost/v1/gems/?limit=1");
+    expect(res.status).toBe(200);
+  });
 });

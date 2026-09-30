@@ -137,9 +137,9 @@ export function toQuote(a: CmcAsset, fetchedAt: number): Quote {
   const usd = a.quote?.USD ?? ({} as CmcAsset["quote"][string]);
   return {
     id: a.id,
-    symbol: a.symbol,
-    name: a.name,
-    slug: a.slug,
+    symbol: String(a.symbol ?? ""),
+    name: String(a.name ?? ""),
+    slug: String(a.slug ?? ""),
     rank: num(a.cmc_rank),
     price: num(usd.price),
     marketCap: num(usd.market_cap),
@@ -152,7 +152,7 @@ export function toQuote(a: CmcAsset, fetchedAt: number): Quote {
     maxSupply: typeof a.max_supply === "number" && Number.isFinite(a.max_supply) ? a.max_supply : null,
     platform: a.platform?.name ?? "",
     dateAdded: time(a.date_added),
-    tags: a.tags ?? [],
+    tags: Array.isArray(a.tags) ? a.tags.filter((t): t is string => typeof t === "string") : [],
     lastUpdated: time(usd.last_updated),
     fetchedAt,
   };

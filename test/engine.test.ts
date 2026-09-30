@@ -9,7 +9,9 @@ import { ALGORAND_MAINNET_CAIP2 } from "@x402/avm";
 
 import { creditWarning, loadConfig, parseDuration, projectedCreditsPerDay } from "../src/config.js";
 import { Engine, normalizeTag } from "../src/discover.js";
-import { loadHistory, saveHistory } from "../src/history-file.js";
+import { cleanStaleTemps, loadHistory, saveHistory } from "../src/history-file.js";
+import { toQuote } from "../src/cmc.js";
+import { isOptedIn } from "../src/optin.js";
 import { Market, Snapshot } from "../src/market.js";
 import { eligible, score, Sectors } from "../src/signals.js";
 import type { Quote } from "../src/types.js";
@@ -172,3 +174,62 @@ describe("operational guards", () => {
     expect(() => loadConfig({ ...base, HISTORY_DAYS: "30" })).toThrow(/HISTORY_DAYS/);
   });
 });
+
+describe("hardening", () => {
+  it("lists any sector the list shows when min_members is lowered", () => {
+    const qs = [1, 2, 3].map((i) => quote(i, `T${i}`, 500 + i, 20e6, 4e6, i, ["tiny"]));
+    const e = new Engine(new StubMarketLike(qs), () => NOW);
+    expect(() => e.sectorDetail("tiny", 10)).toThrow(/not found/); // 3 members < default 5
+    expect(e.sectorDetail("tiny", 10, 2).data.members).toHaveLength(3);
+  });
+
+  it("survives malformed CoinMarketCap rows", () => {
+    const row = { id: 9, name: null, symbol: "X", slug: null, cmc_rank: 5, circulating_supply: null, total_supply: null, max_supply: null, date_added: null, tags: [null, "ok", 3], platform: null, quote: { USD: { price: 1, volume_24h: 1, market_cap: 1, percent_change_1h: null, percent_change_24h: null, percent_change_7d: null, last_updated: null } } };
+    const q = toQuote(row as never, NOW);
+    expect(q).toMatchObject({ name: "", slug: "", tags: ["ok"] });
+    const e = new Engine(new StubMarketLike([q]), () => NOW);
+    expect(() => e.asset("eth")).toThrow(/no tracked asset/); // a clean not-found, not a TypeError
+  });
+
+  it("removes temp files from failed or interrupted history saves", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "hist-tmp-"));
+    const { mkdir, readdir, writeFile } = await import("node:fs/promises");
+    const target = join(dir, "history.json.gz");
+    await mkdir(target); // renaming a file onto a directory fails
+    await expect(saveHistory(target, { savedAt: NOW, publishedAt: NOW, quotes: [], history: {} })).rejects.toThrow();
+    expect((await readdir(dir)).filter((n) => n.endsWith(".tmp"))).toEqual([]);
+    await writeFile(join(dir, ".history-123-456.tmp"), "partial");
+    expect(await cleanStaleTemps(target)).toBe(1);
+    expect(await readdir(dir)).toEqual(["history.json.gz"]);
+  });
+
+  it("reports whether the payout address is opted in to USDC", async () => {
+    const real = globalThis.fetch;
+    const answer = (status: number) => (globalThis.fetch = (async () => new Response("{}", { status })) as typeof fetch);
+    try {
+      answer(200);
+      expect(await isOptedIn("https://algod.example", "ADDR", "31566704")).toBe(true);
+      answer(404);
+      expect(await isOptedIn("https://algod.example", "ADDR", "31566704")).toBe(false);
+      answer(500);
+      expect(await isOptedIn("https://algod.example", "ADDR", "31566704")).toBeNull();
+      globalThis.fetch = (async () => { throw new Error("offline"); }) as typeof fetch;
+      expect(await isOptedIn("https://algod.example", "ADDR", "31566704")).toBeNull();
+    } finally {
+      globalThis.fetch = real;
+    }
+  });
+});
+
+/** Minimal market over a fixed quote list, for engine-only tests. */
+class StubMarketLike {
+  private snap: Snapshot;
+  constructor(quotes: Quote[]) {
+    this.snap = new Snapshot(quotes, NOW);
+  }
+  snapshot() { return this.snap; }
+  historyOf() { return []; }
+  rankAt() { return undefined; }
+  historyHours() { return 0; }
+  status() { return {} as never; }
+}

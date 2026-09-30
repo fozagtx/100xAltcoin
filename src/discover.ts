@@ -121,7 +121,7 @@ export function itemOf(q: Quote): Item {
     price: fin(q.price),
     market_cap: fin(q.marketCap),
     volume_24h: fin(q.volume24h),
-    turnover: q.marketCap > 0 ? Math.round((q.volume24h / q.marketCap) * 10_000) / 10_000 : 0,
+    turnover: q.marketCap > 0 ? fin(Math.round((q.volume24h / q.marketCap) * 10_000) / 10_000) : 0,
     change_1h_pct: fin(q.change1hPct),
     change_24h_pct: fin(q.change24hPct),
     change_7d_pct: fin(q.change7dPct),
@@ -281,9 +281,9 @@ export class Engine {
   }
 
   /** One sector and its members by 24h change; the name is matched loosely. */
-  sectorDetail(name: string, limit: number): Result<{ sector: SectorOut; members: Item[] }> {
+  sectorDetail(name: string, limit: number, minMembers = 5): Result<{ sector: SectorOut; members: Item[] }> {
     const snap = this.market.snapshot();
-    const sec = this.sectors(snap);
+    const sec = this.sectors(snap, minMembers);
     const tag = normalizeTag(name);
     if (!sec.get(tag)) throw new SectorNotFoundError(name, sec.sorted("heat").slice(0, 5).map((s) => s.tag));
     const members = snap.byRank

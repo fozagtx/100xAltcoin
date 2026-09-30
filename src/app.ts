@@ -27,6 +27,8 @@ export interface AppOptions {
   market: AppMarket;
   /** x402 payments; omitted when payments are disabled (local dev). */
   payments?: Payments;
+  /** Whether PAY_TO_ADDRESS is opted in to USDC (null = unknown); updated by the server. */
+  payToStatus?: { optedIn: boolean | null };
   now?: () => number;
   version?: string;
 }
@@ -51,7 +53,8 @@ export function createApp(opts: AppOptions): Hono {
   const engine = new Engine(market, now);
   const started = now();
   let requests = 0;
-  const app = new Hono();
+  // strict:false so /v1/gems/ is served as well as priced (x402 treats both as the same route).
+  const app = new Hono({ strict: false });
 
   app.use("*", async (c, next) => {
     requests++;
@@ -102,7 +105,7 @@ export function createApp(opts: AppOptions): Hono {
     app.use("/v1/*", opts.payments.middleware);
   }
 
-  const handlers: Record<PaidEndpoint, (p: Parsed) => Result<unknown>> = {
+  const handlers: Record<PaidEndpoint, (p: Parsed, q: URLSearchParams) => Result<unknown>> = {
     gems: (p) =>
       engine.gems({
         maxMarketCap: p.max_market_cap as number,
@@ -113,10 +116,14 @@ export function createApp(opts: AppOptions): Hono {
         includePumped: p.include_pumped as boolean,
         limit: p.limit as number,
       }),
-    screen: (p) => {
-      if (p.max_market_cap !== undefined && p.min_market_cap !== undefined && (p.max_market_cap as number) > 0 && (p.max_market_cap as number) < (p.min_market_cap as number)) {
+    screen: (p, query) => {
+      // The default cap (50M) only applies when the caller did not choose one: asking for
+      // min_market_cap above it means "no cap", not an error.
+      const maxGiven = query.has("max_market_cap");
+      if (maxGiven && (p.max_market_cap as number) > 0 && p.min_market_cap !== undefined && (p.max_market_cap as number) < (p.min_market_cap as number)) {
         throw new ParamError("max_market_cap", "max_market_cap is below min_market_cap.");
       }
+      if (!maxGiven && p.min_market_cap !== undefined && (p.min_market_cap as number) >= (p.max_market_cap as number)) p.max_market_cap = 0;
       const tags = ((p.tag as string) ?? "").split(",").map((t) => t.trim()).filter(Boolean);
       if (tags.length > 10) throw new ParamError("tag", "tag takes at most 10 tags.");
       const sort = p.sort as Parameters<Engine["screen"]>[0]["sort"];
@@ -158,7 +165,7 @@ export function createApp(opts: AppOptions): Hono {
     },
     sectors: (p) =>
       p.sector
-        ? engine.sectorDetail(p.sector as string, p.limit as number)
+        ? engine.sectorDetail(p.sector as string, p.limit as number, p.min_members as number)
         : engine.sectorList({ sort: p.sort as "heat", minMembers: p.min_members as number, limit: p.limit as number }),
     asset: (p) => engine.asset(p.asset as string),
     digest: (p) => engine.digest({ gems: p.gems as number, climbers: p.climbers as number, sectors: p.sectors as number }),
@@ -169,7 +176,7 @@ export function createApp(opts: AppOptions): Hono {
       try {
         const params = parseParams(ep, new URL(c.req.url).searchParams);
         requireFreshData();
-        const res = handlers[ep.name](params);
+        const res = handlers[ep.name](params, new URL(c.req.url).searchParams);
         return envelope(c, res);
       } catch (err) {
         return errorResponse(c, err, ep);
@@ -278,6 +285,7 @@ export function createApp(opts: AppOptions): Hono {
         network_name: `Algorand ${cfg.x402.networkName}`,
         asset: `USDC (ASA ${cfg.x402.usdcAssetId})`,
         pay_to: cfg.x402.payTo,
+        pay_to_opted_in_usdc: opts.payToStatus?.optedIn ?? null,
         facilitator: cfg.x402.facilitatorUrl,
         tag: CHALLENGE_TAG,
       },

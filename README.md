@@ -102,29 +102,38 @@ The payer wallet must be opted in to TestNet USDC (ASA 10458941) and hold some.
 
 ## Challenge checklist (submissions close September 30, 2026)
 
+Official guide: [The Global x402 Challenge is live](https://algorand.co/blog/the-x402-global-challenge-is-live-how-to-build-submit-your-entry).
+
 1. **Test on TestNet:** run locally with `ALGORAND_NETWORK=testnet`, confirm
    `npm run check` passes, then pay once with `npm run pay`. `npm run wallet`
-   creates, opts in and inspects test wallets.
+   creates, opts in and inspects test wallets. TestNet doesn't count toward the leaderboard.
 2. **Switch to MainNet and deploy.** On Render, go to New → Blueprint and pick this repo;
    `render.yaml` sets `ALGORAND_NETWORK=mainnet`, the GoPlausible facilitator and a disk
    for the history file. Enter `CMC_API_KEY` and `PAY_TO_ADDRESS` when prompted.
-   - `PAY_TO_ADDRESS` must be a MainNet account opted in to USDC (ASA 31566704).
+   - `PAY_TO_ADDRESS` must be a MainNet account you control, opted in to USDC (ASA 31566704).
+     It's the public address only, never the recovery phrase.
    - **Keep the same `PAY_TO_ADDRESS` for the whole competition**; the leaderboard is keyed by it.
    - **Use one domain.** `PUBLIC_URL` defaults to Render's `https://<name>.onrender.com`. If
      you add a custom domain, set `PUBLIC_URL` to it and use only that one; a merchant account
      must not span domains.
 3. **Check the live 402:** `npm run check -- https://<your-host>` must pass on every endpoint
    (MainNet, ASA 31566704, `x402-global-challenge` tag, Bazaar extension, fee payer present).
-4. **Make one real MainNet payment:**
+4. **Make one real MainNet payment** from a different wallet holding a little USDC:
    `ALGORAND_NETWORK=mainnet AVM_MNEMONIC="..." npm run pay -- https://<your-host>/v1/gems`.
    Confirm the paid response and that the USDC landed:
    `ALGORAND_NETWORK=mainnet npm run wallet -- balance <PAY_TO_ADDRESS>`.
-5. **Confirm the listing:** after that first settlement the endpoints appear in the Bazaar and
-   your merchant entry appears on the leaderboard (turn the global hackathon filter on).
-6. **Submit** the entry through the challenge form, and submit the public GitHub repo to
-   Electric Capital.
+5. **Confirm the listing** (global hackathon filter ON): after that first settlement the
+   endpoints appear in the
+   [Bazaar resource catalog](https://facilitator.goplausible.xyz/dashboard/leaderboards?cat=resources),
+   your [merchant entry](https://facilitator.goplausible.xyz/dashboard/leaderboards?cat=merchants)
+   and the [leaderboard](https://facilitator.goplausible.xyz/dashboard/leaderboards). The raw
+   catalogs are at `/discovery/resources` and `/discovery/merchants` on the facilitator.
+6. **Submit** the entry through the [challenge form](https://fjtqz.share-eu1.hsforms.com/2VnFVCiF_Sg26XP85Jxz_bA),
+   then submit the public GitHub repo to
+   [Electric Capital](https://github.com/electric-capital/open-dev-data)
+   ([video walkthrough](https://www.youtube.com/watch?v=Csua5h2DNRg)).
 7. **Drive usage through October.** The leaderboard is measured over an unannounced window in
-   October on real on-chain usage.
+   October on real on-chain usage; the top 50 are reviewed and 10 finalists present at Devcon 8.
 
 ## How the score works
 

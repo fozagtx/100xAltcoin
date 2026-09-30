@@ -37,7 +37,7 @@ export const ENDPOINTS: Endpoint[] = [
     path: "/v1/gems",
     telegram: "/gems and New gem alerts",
     description:
-      "Early altcoin candidates with 100x potential: small caps scored 0-100 on turnover, rank climb, listing age and sector heat, with reasons and risk flags. CoinMarketCap data.",
+      "Top 100x altcoin candidates right now: up to 50 small-cap coins (1M-50M USD market cap) ranked by a 0-100 score from turnover, CoinMarketCap rank climb, listing age and sector heat, each with plain-English reasons and risk flags.",
     params: [
       { name: "max_market_cap", type: "number", default: 50_000_000, min: 0, description: "Largest market cap in USD still considered early." },
       { name: "min_market_cap", type: "number", default: 1_000_000, min: 0, description: "Smallest market cap in USD; filters out dust." },
@@ -61,7 +61,7 @@ export const ENDPOINTS: Endpoint[] = [
     path: "/v1/screen",
     telegram: "/screen",
     description:
-      "Screen the CoinMarketCap top N by market cap, volume, turnover, price change, tags and listing age. Defaults to the highest turnover coins under 50M USD market cap.",
+      "Coin screener over the CoinMarketCap top 3000: filter by market cap, 24h volume, turnover, 1h/24h/7d price change, tags and listing age. By default returns the 10 highest-turnover coins under 50M USD market cap.",
     params: [
       { name: "min_market_cap", type: "number", description: "Minimum market cap in USD." },
       { name: "max_market_cap", type: "number", default: 50_000_000, min: 0, description: "Maximum market cap in USD; 0 means no cap." },
@@ -94,7 +94,7 @@ export const ENDPOINTS: Endpoint[] = [
     path: "/v1/climbers",
     telegram: "Rank climber alerts",
     description:
-      "Biggest CoinMarketCap rank climbers over the last 24 hours, from the service's own hourly rank history. Set direction=down for the biggest fallers.",
+      "Biggest CoinMarketCap rank climbers of the last 24 hours: each coin's rank now and 24h ago, rank change in places and percent, price change, market cap and volume. direction=down returns the biggest fallers.",
     params: [
       { name: "direction", type: "enum", default: "up", enum: ["up", "down"], description: "up for climbers, down for fallers." },
       { name: "min_volume", type: "number", default: 100_000, min: 0, description: "Minimum 24h volume in USD." },
@@ -111,7 +111,7 @@ export const ENDPOINTS: Endpoint[] = [
     path: "/v1/sectors",
     telegram: "/sectors and /sector <tag>",
     description:
-      "Hottest crypto sectors (CoinMarketCap tags) ranked by heat, the median 24h move of their members, with the leading coins. Pass sector= for one sector's members.",
+      "Hottest crypto sectors right now: CoinMarketCap tags ranked by heat (median 24h move of their coins), with member count, 7d change, volume, market cap and the top 3 leading coins. sector=<tag> returns that sector's coins.",
     params: [
       { name: "sort", type: "enum", default: "heat", enum: ["heat", "change_24h_pct", "change_7d_pct", "volume_24h", "market_cap"], description: "Sort key for the sector list." },
       { name: "min_members", type: "integer", default: 5, min: 2, max: 200, description: "Smallest sector size listed." },
@@ -128,7 +128,7 @@ export const ENDPOINTS: Endpoint[] = [
     path: "/v1/asset",
     telegram: "/asset <query>",
     description:
-      "One tracked coin in detail by symbol, slug, name or CMC id: 100x score, signal breakdown, risk flags and hourly rank history.",
+      "Full 100x scorecard for one coin by symbol, name, slug or CMC id: price, market cap, supply, 0-100 score with signal breakdown, reasons, risk flags and hourly rank history.",
     params: [
       { name: "asset", type: "string", default: "ETH", maxLength: 100, description: "CMC id, symbol, slug or name of a coin in the tracked top N (default ETH, so a bare call still returns a result).", example: "MOVR" },
     ],
@@ -144,7 +144,8 @@ export const ENDPOINTS: Endpoint[] = [
     name: "digest",
     path: "/v1/digest",
     telegram: "Daily digest",
-    description: "The daily altcoin digest in one call: top 100x candidates, 24h rank climbers and the hottest sectors.",
+    description: 
+      "Daily altcoin digest in one call: the top 5 100x candidates with scores, the 3 biggest 24h rank climbers and the 3 hottest sectors with their leading coins.",
     params: [
       { name: "gems", type: "integer", default: 5, min: 1, max: 20, description: "Number of top gems." },
       { name: "climbers", type: "integer", default: 3, min: 1, max: 20, description: "Number of rank climbers (empty until 24h of history exist)." },

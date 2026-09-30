@@ -112,14 +112,14 @@ describe("config", () => {
   it("defaults to TestNet and the GoPlausible facilitator", () => {
     const c = loadConfig(base);
     expect(c.x402).toMatchObject({ networkName: "testnet", usdcAssetId: "10458941", facilitatorUrl: "https://facilitator.goplausible.xyz" });
-    expect(c.x402.network).toBe("algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=");
+    expect(c.x402.network).toBe("algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe"); // SDK ALGORAND_TESTNET_CAIP2
     expect(projectedCreditsPerDay(c)).toBe(720 + 14 * 96);
   });
 
-  it("uses full MainNet ids and requires an https public URL on MainNet", () => {
+  it("uses the SDK MainNet id and requires an https public URL on MainNet", () => {
     expect(() => loadConfig({ ...base, ALGORAND_NETWORK: "mainnet" })).toThrow(/PUBLIC_URL/);
     const c = loadConfig({ ...base, ALGORAND_NETWORK: "mainnet", RENDER_EXTERNAL_URL: "https://x.onrender.com/" });
-    expect(c.x402).toMatchObject({ network: "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=", usdcAssetId: "31566704" });
+    expect(c.x402).toMatchObject({ network: "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k", usdcAssetId: "31566704" });
     expect(c.publicUrl).toBe("https://x.onrender.com");
   });
 

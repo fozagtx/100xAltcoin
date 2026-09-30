@@ -46,21 +46,33 @@ Main parameters (all listed in `/v1/openapi.json`):
 | | |
 | --- | --- |
 | Protocol | x402 v2, `exact` scheme, official `@x402/hono` + `@x402/avm` |
-| Facilitator | GoPlausible, `https://facilitator.goplausible.xyz` |
-| MainNet | `algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=`, USDC ASA `31566704` |
-| TestNet | `algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=`, USDC ASA `10458941` |
+| Facilitator | GoPlausible, `https://facilitator.goplausible.xyz` (TestNet and MainNet) |
+| MainNet | `ALGORAND_MAINNET_CAIP2`, USDC ASA `31566704` |
+| TestNet | `ALGORAND_TESTNET_CAIP2`, USDC ASA `10458941` |
 | Challenge tag | `extra.tag = "x402-global-challenge"` on every payment option |
-| Discovery | Bazaar extension (input example, input schema, output example) on every paid route |
+| Discovery | Bazaar resource-server extension registered once (`@x402-avm/extensions`, as in the official demo); a declared discovery extension and a concrete description on every route |
+| Entry type | Composite: six routes, one `payTo`, one domain, so they roll up to one merchant on the leaderboard |
 
-The network ids are the full genesis-hash form GoPlausible advertises; the
-SDK's exported constants are truncated, so they are hard-coded in `src/config.ts`.
-Route descriptions are plain ASCII, because the AVM paywall page base64-encodes
-them with `btoa` and fails on characters like em dashes.
+**Network id.** The config uses the SDK constants the challenge guide names.
+At startup the server reads GoPlausible's `/supported` list and uses the
+Algorand id exactly as the facilitator advertises it (short SDK form or full
+genesis-hash form; both name the same chain), so route validation can't fail
+on a formatting mismatch. `/v1/status` shows the id in use.
+
+**Bazaar metadata.** The Bazaar enriches the merchant page from your domain,
+so the service serves:
+- page metadata: title, description, Open Graph tags and the logo (`/logo.svg`)
+- agent and discovery files: `/.well-known/x402`, `/.well-known/agent-card.json`, `/llms.txt`
+- `/openapi.json`, `/robots.txt` and `/sitemap.xml`
+
+Route descriptions say concretely what the caller gets, and they are plain
+ASCII, because the AVM paywall page base64-encodes them with `btoa`.
 
 **Paid calls that fail are not charged.** If a paid call fails (bad parameter,
 unknown coin, data not loaded yet, or climbers before 24h of history), the
 handler answers 4xx/5xx and the x402 middleware skips settlement. Your USDC
-never moves.
+never moves. If GoPlausible itself can't be reached, paid routes answer 503
+`facilitator_unavailable` and retry on the next request.
 
 ## Run it
 
@@ -88,22 +100,31 @@ AVM_MNEMONIC="..." npm run pay -- 'http://localhost:3000/v1/gems?limit=5'
 
 The payer wallet must be opted in to TestNet USDC (ASA 10458941) and hold some.
 
-## Challenge checklist (deadline: September 30, 2026)
+## Challenge checklist (submissions close September 30, 2026)
 
-1. **Test on TestNet** as above.
-2. **Deploy to MainNet.** On Render, go to New → Blueprint and pick this repo; `render.yaml` sets
-   `ALGORAND_NETWORK=mainnet`, the GoPlausible facilitator and a disk for the history
-   file. Enter `CMC_API_KEY` and `PAY_TO_ADDRESS` when prompted. `PAY_TO_ADDRESS` must be
-   opted in to MainNet USDC (ASA 31566704). `PUBLIC_URL` defaults to Render's
-   `https://<name>.onrender.com`.
-3. **Check the 402:** `curl -i https://<your-host>/v1/gems` should return 402, and the
-   decoded `PAYMENT-REQUIRED` should show the MainNet network, asset `31566704` and
-   `extra.tag: "x402-global-challenge"`.
-4. **Make a real MainNet payment:** `AVM_MNEMONIC="..." npm run pay -- https://<your-host>/v1/gems`.
-   Confirm the USDC arrived at `PAY_TO_ADDRESS`. The first settlement catalogs the
-   endpoint in the Bazaar.
-5. **Confirm the listing:** the endpoint should appear in the GoPlausible Bazaar and on the leaderboard.
-6. **Submit** the GitHub repo through the challenge submission form (Electric Capital).
+1. **Test on TestNet:** run locally with `ALGORAND_NETWORK=testnet`, confirm
+   `npm run check` passes, then pay once with `npm run pay`. `npm run wallet`
+   creates, opts in and inspects test wallets.
+2. **Switch to MainNet and deploy.** On Render, go to New → Blueprint and pick this repo;
+   `render.yaml` sets `ALGORAND_NETWORK=mainnet`, the GoPlausible facilitator and a disk
+   for the history file. Enter `CMC_API_KEY` and `PAY_TO_ADDRESS` when prompted.
+   - `PAY_TO_ADDRESS` must be a MainNet account opted in to USDC (ASA 31566704).
+   - **Keep the same `PAY_TO_ADDRESS` for the whole competition**; the leaderboard is keyed by it.
+   - **Use one domain.** `PUBLIC_URL` defaults to Render's `https://<name>.onrender.com`. If
+     you add a custom domain, set `PUBLIC_URL` to it and use only that one; a merchant account
+     must not span domains.
+3. **Check the live 402:** `npm run check -- https://<your-host>` must pass on every endpoint
+   (MainNet, ASA 31566704, `x402-global-challenge` tag, Bazaar extension, fee payer present).
+4. **Make one real MainNet payment:**
+   `ALGORAND_NETWORK=mainnet AVM_MNEMONIC="..." npm run pay -- https://<your-host>/v1/gems`.
+   Confirm the paid response and that the USDC landed:
+   `ALGORAND_NETWORK=mainnet npm run wallet -- balance <PAY_TO_ADDRESS>`.
+5. **Confirm the listing:** after that first settlement the endpoints appear in the Bazaar and
+   your merchant entry appears on the leaderboard (turn the global hackathon filter on).
+6. **Submit** the entry through the challenge form, and submit the public GitHub repo to
+   Electric Capital.
+7. **Drive usage through October.** The leaderboard is measured over an unannounced window in
+   October on real on-chain usage.
 
 ## How the score works
 
@@ -142,3 +163,5 @@ climbers keep working across restarts.
 - **`src/config.ts`:** environment config.
 - **`scripts/fake-cmc.ts`:** local fake CoinMarketCap.
 - **`scripts/pay.ts`:** pay-and-call client.
+- **`scripts/check.ts`:** challenge checks against a live URL.
+- **`scripts/wallet.ts`:** wallet helpers (new, opt in, balance).

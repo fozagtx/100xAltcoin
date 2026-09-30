@@ -8,11 +8,21 @@
  * decoded PAYMENT-REQUIRED header (network, USDC asset, payTo, challenge tag,
  * resource URL) and the Bazaar discovery extension. Exits non-zero on failure.
  */
+import { normalizeAlgorandNetwork } from "@x402/avm";
+
 import { ALGORAND_MAINNET, ALGORAND_TESTNET, CHALLENGE_TAG } from "../src/config.js";
 import { ENDPOINTS } from "../src/endpoints.js";
 
 const base = (process.argv[2] ?? "http://localhost:3000").replace(/\/+$/, "");
 const USDC: Record<string, string> = { [ALGORAND_MAINNET]: "31566704", [ALGORAND_TESTNET]: "10458941" };
+// Short (SDK) and full genesis-hash ids name the same chain.
+const chain = (n: string) => {
+  try {
+    return normalizeAlgorandNetwork(n);
+  } catch {
+    return n;
+  }
+};
 
 let failures = 0;
 const check = (ok: boolean, label: string, detail = "") => {
@@ -37,11 +47,11 @@ for (const ep of ENDPOINTS) {
   if (!header) continue;
   const req = JSON.parse(Buffer.from(header, "base64").toString("utf8"));
   const opt = req.accepts?.[0] ?? {};
-  network = opt.network;
+  network = chain(opt.network ?? "");
   check(req.x402Version === 2, "x402 version 2");
   check(opt.scheme === "exact", "exact scheme");
-  check(opt.network === ALGORAND_MAINNET || opt.network === ALGORAND_TESTNET, "Algorand network", opt.network === ALGORAND_MAINNET ? "MainNet" : opt.network === ALGORAND_TESTNET ? "TestNet" : opt.network);
-  check(opt.asset === USDC[opt.network], "USDC asset", `ASA ${opt.asset}`);
+  check(network === ALGORAND_MAINNET || network === ALGORAND_TESTNET, "Algorand network", `${network === ALGORAND_MAINNET ? "MainNet" : network === ALGORAND_TESTNET ? "TestNet" : "?"} ${opt.network}`);
+  check(opt.asset === USDC[network], "USDC asset", `ASA ${opt.asset}`);
   check(/^[A-Z2-7]{58}$/.test(opt.payTo ?? ""), "payTo is an Algorand address", opt.payTo);
   check(opt.extra?.tag === CHALLENGE_TAG, `extra.tag = ${CHALLENGE_TAG}`);
   check(!!opt.extra?.feePayer, "facilitator fee payer present (GoPlausible synced)");

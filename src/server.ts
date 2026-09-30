@@ -6,7 +6,7 @@ import { CmcClient } from "./cmc.js";
 import { CHALLENGE_TAG, loadConfig, projectedCreditsPerDay } from "./config.js";
 import { loadHistory, saveHistory } from "./history-file.js";
 import { Market } from "./market.js";
-import { createPaymentMiddleware } from "./x402.js";
+import { createPayments, type Payments } from "./x402.js";
 
 const log = (level: string, msg: string, extra: Record<string, unknown> = {}) =>
   console.log(JSON.stringify({ time: new Date().toISOString(), level, msg, ...extra }));
@@ -49,14 +49,26 @@ async function persist() {
   }
 }
 
-let payment;
+let payments: Payments | undefined;
 if (cfg.x402.enabled) {
-  payment = createPaymentMiddleware(cfg);
+  payments = createPayments(cfg);
+  // Reach GoPlausible now so the first paid request is fast; retry until it answers.
+  const sync = async (attempt = 1): Promise<void> => {
+    try {
+      const network = await payments!.ready();
+      log("info", "x402 facilitator synced", { facilitator: cfg.x402.facilitatorUrl, network, pay_to: cfg.x402.payTo });
+    } catch (err) {
+      const wait = Math.min(300, 5 * 2 ** Math.min(attempt, 6));
+      log("warn", "x402 facilitator not reachable yet", { error: String(err), retry_in_seconds: wait });
+      setTimeout(() => void sync(attempt + 1), wait * 1000).unref();
+    }
+  };
+  void sync();
 } else {
   log("warn", "X402_ENABLED=false: every paid endpoint is FREE; local development only");
 }
 
-const app = createApp({ config: cfg, market, payment, version });
+const app = createApp({ config: cfg, market, payments, version });
 market.start();
 const saver = setInterval(() => void persist(), cfg.historySaveEveryMs);
 

@@ -3,15 +3,21 @@ import { describe, expect, it } from "vitest";
 
 import { createApp } from "../src/app.js";
 import { ALGORAND_MAINNET, CHALLENGE_TAG } from "../src/config.js";
-import { createPaymentMiddleware } from "../src/x402.js";
+import { createPayments } from "../src/x402.js";
 import { NOW, PAY_TO, stubMarket, testConfig } from "./helpers.js";
 
 /** A GoPlausible stand-in that accepts every payment and records calls. */
-function fakeFacilitator() {
+// GoPlausible has advertised the full genesis-hash id; the SDK constant is the short form.
+const MAINNET_FULL = "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=";
+
+function fakeFacilitator(network: string = ALGORAND_MAINNET) {
   const calls = { verify: 0, settle: 0, lastRequirements: undefined as Record<string, unknown> | undefined };
   const client = {
     getSupported: async () => ({
-      kinds: [{ x402Version: 2, scheme: "exact", network: ALGORAND_MAINNET, extra: { feePayer: PAY_TO } }],
+      kinds: [
+        { x402Version: 2, scheme: "exact", network: "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe", extra: { feePayer: PAY_TO } },
+        { x402Version: 2, scheme: "exact", network, extra: { feePayer: PAY_TO } },
+      ],
       extensions: ["bazaar"],
       signers: {},
     }),
@@ -22,16 +28,16 @@ function fakeFacilitator() {
     },
     settle: async () => {
       calls.settle++;
-      return { success: true, transaction: "TXID123", network: ALGORAND_MAINNET, payer: "PAYER" };
+      return { success: true, transaction: "TXID123", network, payer: "PAYER" };
     },
   } as unknown as FacilitatorClient;
   return { client, calls };
 }
 
-function setup(market = stubMarket()) {
+function setup(market = stubMarket(), network: string = ALGORAND_MAINNET) {
   const cfg = testConfig();
-  const fac = fakeFacilitator();
-  const app = createApp({ config: cfg, market, payment: createPaymentMiddleware(cfg, fac.client), now: () => NOW });
+  const fac = fakeFacilitator(network);
+  const app = createApp({ config: cfg, market, payments: createPayments(cfg, fac.client), now: () => NOW });
   return { app, fac, market };
 }
 
@@ -104,6 +110,48 @@ describe("x402 on Algorand", () => {
     expect(manifest.tags).toContain(CHALLENGE_TAG);
     expect(manifest.resources).toHaveLength(6);
     expect(fac.calls.verify).toBe(0);
+  });
+
+  it("uses the network id exactly as the facilitator advertises it", async () => {
+    for (const advertised of [ALGORAND_MAINNET, MAINNET_FULL]) {
+      const { app, fac } = setup(stubMarket(), advertised);
+      const res = await app.request("https://100xaltcoin.example.com/v1/gems");
+      expect(res.status).toBe(402);
+      expect(decode(res.headers.get("PAYMENT-REQUIRED")).accepts[0].network).toBe(advertised);
+      const sig = await paymentFor(app, "/v1/gems");
+      const paid = await app.request("https://100xaltcoin.example.com/v1/gems", { headers: { "PAYMENT-SIGNATURE": sig } });
+      expect(paid.status).toBe(200);
+      expect(fac.calls.settle).toBe(1);
+    }
+  });
+
+  it("answers 503 (not charged) while the facilitator is unreachable, then recovers", async () => {
+    const cfg = testConfig();
+    const fac = fakeFacilitator();
+    let down = true;
+    const flaky = { ...fac.client, getSupported: async () => { if (down) throw new Error("ECONNREFUSED"); return fac.client.getSupported(); } } as typeof fac.client;
+    const app = createApp({ config: cfg, market: stubMarket(), payments: createPayments(cfg, flaky), now: () => NOW });
+    const res = await app.request("https://100xaltcoin.example.com/v1/gems");
+    expect(res.status).toBe(503);
+    expect((await res.json()).error.code).toBe("facilitator_unavailable");
+    down = false;
+    expect((await app.request("https://100xaltcoin.example.com/v1/gems")).status).toBe(402);
+  });
+
+  it("serves the metadata the Bazaar reads", async () => {
+    const { app } = setup();
+    const page = await (await app.request("https://100xaltcoin.example.com/")).text();
+    expect(page).toContain('<meta name="description"');
+    expect(page).toContain('og:image');
+    const logo = await app.request("https://100xaltcoin.example.com/logo.svg");
+    expect(logo.headers.get("content-type")).toContain("image/svg+xml");
+    const card = await (await app.request("https://100xaltcoin.example.com/.well-known/agent-card.json")).json();
+    expect(card.skills).toHaveLength(6);
+    for (const path of ["/robots.txt", "/sitemap.xml", "/openapi.json"]) {
+      expect((await app.request(`https://100xaltcoin.example.com${path}`)).status, path).toBe(200);
+    }
+    const req = decode((await app.request("https://100xaltcoin.example.com/v1/gems")).headers.get("PAYMENT-REQUIRED"));
+    expect(req.resource.serviceName ?? "100xAltcoin").toBe("100xAltcoin");
   });
 
   it("keeps route descriptions ASCII (the AVM paywall page base64-encodes them with btoa)", async () => {

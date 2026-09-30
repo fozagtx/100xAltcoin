@@ -1,4 +1,4 @@
-import { Hono, type Context, type MiddlewareHandler } from "hono";
+import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 
 import { CHALLENGE_TAG, type Config, type PaidEndpoint } from "./config.js";
@@ -12,7 +12,7 @@ import {
 } from "./discover.js";
 import { ENDPOINTS, ParamError, paramSchema, parseParams, type Endpoint, type Parsed } from "./endpoints.js";
 import type { Snapshot } from "./market.js";
-import { DISCOVERY_TAGS, SERVICE_NAME } from "./x402.js";
+import { DISCOVERY_TAGS, SERVICE_NAME, type Payments } from "./x402.js";
 
 const DISCLAIMER = "Market data for information only, not financial advice.";
 
@@ -24,8 +24,8 @@ export interface AppMarket extends MarketView {
 export interface AppOptions {
   config: Config;
   market: AppMarket;
-  /** x402 payment middleware; omitted when payments are disabled (local dev). */
-  payment?: MiddlewareHandler;
+  /** x402 payments; omitted when payments are disabled (local dev). */
+  payments?: Payments;
   now?: () => number;
   version?: string;
 }
@@ -67,16 +67,27 @@ export function createApp(opts: AppOptions): Hono {
     }),
   );
 
-  // ---- free routes ----
-  app.get("/", (c) => c.html(docsPage(cfg, opts.payment !== undefined, opts.version ?? "dev")));
+  const network = () => opts.payments?.network() ?? cfg.x402.network;
+  const version = opts.version ?? "dev";
+
+  // ---- free routes: docs and the metadata the Bazaar uses to enrich the merchant page ----
+  app.get("/", (c) => c.html(docsPage(cfg, opts.payments !== undefined, version)));
   app.get("/health", (c) => c.json({ ok: true }));
   app.get("/v1/status", (c) => status(c));
-  app.get("/v1/openapi.json", (c) => c.json(openApi(cfg, opts.version ?? "dev")));
-  app.get("/.well-known/x402", (c) => c.json(x402Manifest(cfg)));
-  app.get("/llms.txt", (c) => c.text(llmsTxt(cfg)));
+  app.get("/v1/openapi.json", (c) => c.json(openApi(cfg, version, network())));
+  app.get("/openapi.json", (c) => c.json(openApi(cfg, version, network())));
+  app.get("/.well-known/x402", (c) => c.json(x402Manifest(cfg, network())));
+  app.get("/.well-known/agent-card.json", (c) => c.json(agentCard(cfg, version)));
+  app.get("/llms.txt", (c) => c.text(llmsTxt(cfg, network())));
+  app.get("/logo.svg", (c) => c.body(LOGO_SVG, 200, { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=86400" }));
+  app.get("/favicon.ico", (c) => c.redirect("/logo.svg", 301));
+  app.get("/robots.txt", (c) => c.text(`User-agent: *\nAllow: /\n${cfg.publicUrl ? `Sitemap: ${cfg.publicUrl}/sitemap.xml\n` : ""}`));
+  app.get("/sitemap.xml", (c) =>
+    c.body(sitemap(cfg), 200, { "Content-Type": "application/xml; charset=utf-8" }),
+  );
 
   // ---- paid routes: every unpaid call gets 402 from the x402 middleware ----
-  if (opts.payment) app.use("/v1/*", opts.payment);
+  if (opts.payments) app.use("/v1/*", opts.payments.middleware);
 
   const handlers: Record<PaidEndpoint, (p: Parsed) => Result<unknown>> = {
     gems: (p) =>
@@ -247,8 +258,9 @@ export function createApp(opts: AppOptions): Hono {
       upstream_errors: st.upstreamErrors,
       requests_total: requests,
       payments: {
-        enabled: opts.payment !== undefined,
-        network: cfg.x402.network,
+        enabled: opts.payments !== undefined,
+        network: network(),
+        facilitator_synced: opts.payments ? opts.payments.network() !== undefined : null,
         network_name: `Algorand ${cfg.x402.networkName}`,
         asset: `USDC (ASA ${cfg.x402.usdcAssetId})`,
         pay_to: cfg.x402.payTo,
@@ -262,13 +274,13 @@ export function createApp(opts: AppOptions): Hono {
   return app;
 }
 
-function x402Manifest(cfg: Config) {
+function x402Manifest(cfg: Config, network: string) {
   const base = cfg.publicUrl;
   return {
     name: SERVICE_NAME,
     description: "Pay-per-call altcoin discovery: find small caps with 100x potential before they move.",
     x402Version: 2,
-    network: cfg.x402.network,
+    network,
     asset: cfg.x402.usdcAssetId,
     payTo: cfg.x402.payTo,
     facilitator: cfg.x402.facilitatorUrl,
@@ -283,13 +295,13 @@ function x402Manifest(cfg: Config) {
   };
 }
 
-function llmsTxt(cfg: Config) {
+function llmsTxt(cfg: Config, network: string) {
   const lines = [
     `# ${SERVICE_NAME}`,
     "",
     "> Pay-per-call altcoin discovery for AI agents on Algorand x402. Finds small-cap coins with 100x potential before they move, scored on turnover, rank climb, listing age and sector heat from CoinMarketCap data.",
     "",
-    `Payment: x402 v2, exact scheme, USDC (ASA ${cfg.x402.usdcAssetId}) on ${cfg.x402.network}. Unpaid calls return 402 with a PAYMENT-REQUIRED header. Errors are never charged.`,
+    `Payment: x402 v2, exact scheme, USDC (ASA ${cfg.x402.usdcAssetId}) on ${network}. Unpaid calls return 402 with a PAYMENT-REQUIRED header. Errors are never charged.`,
     "",
     "## Endpoints",
     ...ENDPOINTS.map((e) => `- GET ${cfg.publicUrl}${e.path} (${cfg.x402.prices[e.name]}): ${e.description}`),
@@ -299,7 +311,7 @@ function llmsTxt(cfg: Config) {
   return lines.join("\n") + "\n";
 }
 
-function openApi(cfg: Config, version: string) {
+function openApi(cfg: Config, version: string, network: string) {
   const errRef = (d: string) => ({ description: d, content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } });
   const paths: Record<string, unknown> = {};
   for (const ep of ENDPOINTS) {
@@ -309,7 +321,7 @@ function openApi(cfg: Config, version: string) {
         operationId: ep.name,
         summary: ep.description,
         description: `${ep.description} Costs ${price} in USDC on Algorand per call via x402. Errors are never charged.`,
-        "x-payment": { protocol: "x402", x402Version: 2, scheme: "exact", price, network: cfg.x402.network, asset: cfg.x402.usdcAssetId },
+        "x-payment": { protocol: "x402", x402Version: 2, scheme: "exact", price, network, asset: cfg.x402.usdcAssetId },
         parameters: ep.params.map((p) => ({ name: p.name, in: "query", required: !!p.required, description: p.description, schema: paramSchema(p), ...(p.example !== undefined ? { example: p.example } : {}) })),
         responses: {
           200: { description: "Success; the PAYMENT-RESPONSE header carries the settlement receipt.", content: { "application/json": { example: ep.exampleOutput } } },
@@ -359,7 +371,18 @@ function docsPage(cfg: Config, paid: boolean, version: string) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>100xAltcoin</title>
+<title>100xAltcoin - pay-per-call altcoin discovery on Algorand x402</title>
+<meta name="description" content="${esc(SITE_DESCRIPTION)}">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+${cfg.publicUrl ? `<link rel="canonical" href="${esc(cfg.publicUrl)}/">` : ""}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="100xAltcoin">
+<meta property="og:title" content="100xAltcoin - find 100x altcoins before they move">
+<meta property="og:description" content="${esc(SITE_DESCRIPTION)}">
+${cfg.publicUrl ? `<meta property="og:url" content="${esc(cfg.publicUrl)}/">\n<meta property="og:image" content="${esc(cfg.publicUrl)}/logo.svg">` : ""}
+<meta name="twitter:card" content="summary">
+<link rel="alternate" type="application/json" title="OpenAPI" href="/openapi.json">
+<link rel="alternate" type="text/plain" title="llms.txt" href="/llms.txt">
 <style>
 :root { --bg:#fbfbf9; --fg:#1d1d1b; --muted:#6b6b66; --line:#e3e2dc; --card:#fff; --accent:#0b6b4f; --code:#f1f0ea; }
 @media (prefers-color-scheme: dark) { :root { --bg:#121311; --fg:#ecebe6; --muted:#9a9a93; --line:#2a2b28; --card:#1a1b19; --accent:#4fc79c; --code:#20211f; } }
@@ -383,7 +406,7 @@ pre { background: var(--code); padding: 14px 16px; border-radius: 8px; overflow-
 </head>
 <body>
 <main>
-<h1>100xAltcoin</h1>
+<h1><img src="/logo.svg" alt="" width="36" height="36" style="vertical-align:-6px;margin-right:8px">100xAltcoin</h1>
 <p class="lead">Pay-per-call altcoin discovery for AI agents. Every call scores the CoinMarketCap top ${cfg.topN} on turnover, rank climb, listing age and sector heat to surface small caps before they move. Paid per call in USDC on Algorand ${esc(cfg.x402.networkName)} with x402: no API key, no signup.</p>
 <h2>Endpoints</h2>
 <div class="wrap"><table>
@@ -410,4 +433,49 @@ console.log(await res.json());</pre>
 </main>
 </body>
 </html>`;
+}
+
+export const SITE_DESCRIPTION =
+  "Pay-per-call altcoin discovery for AI agents: 100x candidate scores, coin screener, 24h rank climbers, hot sectors and coin scorecards from CoinMarketCap data, paid in USDC on Algorand with x402.";
+
+const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+<rect width="256" height="256" rx="56" fill="#0b6b4f"/>
+<path d="M44 196 L100 132 L136 160 L212 64" fill="none" stroke="#ffffff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M170 60 L214 60 L214 104" fill="none" stroke="#ffffff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="46" y="92" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700" fill="#b8f5dc">100x</text>
+</svg>
+`;
+
+function agentCard(cfg: Config, version: string) {
+  const base = cfg.publicUrl;
+  return {
+    name: SERVICE_NAME,
+    description: SITE_DESCRIPTION,
+    url: base || "/",
+    version,
+    iconUrl: `${base}/logo.svg`,
+    documentationUrl: `${base}/`,
+    provider: { organization: SERVICE_NAME, url: base || "/" },
+    capabilities: { streaming: false, pushNotifications: false },
+    defaultInputModes: ["application/json"],
+    defaultOutputModes: ["application/json"],
+    payments: { protocol: "x402", version: 2, network: "algorand", asset: "USDC", manifest: `${base}/.well-known/x402` },
+    skills: ENDPOINTS.map((e) => ({
+      id: e.name,
+      name: `${e.name} (${cfg.x402.prices[e.name]} per call)`,
+      description: e.description,
+      tags: [...DISCOVERY_TAGS, CHALLENGE_TAG],
+      examples: [`GET ${base}${e.path}?${new URLSearchParams(Object.entries(e.exampleInput).map(([k, v]) => [k, String(v)]))}`],
+    })),
+  };
+}
+
+function sitemap(cfg: Config) {
+  const base = cfg.publicUrl;
+  const urls = ["/", "/openapi.json", "/llms.txt", "/.well-known/x402", "/.well-known/agent-card.json"];
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.map((u) => `  <url><loc>${esc(base + u)}</loc></url>`).join("\n")}
+</urlset>
+`;
 }

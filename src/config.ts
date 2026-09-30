@@ -1,10 +1,17 @@
-import { isValidAlgorandAddress, USDC_MAINNET_ASA_ID, USDC_TESTNET_ASA_ID } from "@x402/avm";
+import {
+  ALGORAND_MAINNET_CAIP2,
+  ALGORAND_TESTNET_CAIP2,
+  isValidAlgorandAddress,
+  USDC_MAINNET_ASA_ID,
+  USDC_TESTNET_ASA_ID,
+} from "@x402/avm";
 
-// GoPlausible advertises the full genesis-hash CAIP-2 ids; the SDK's exported
-// constants are truncated and are not accepted during /supported sync.
-export const ALGORAND_MAINNET = "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=" as const;
-export const ALGORAND_TESTNET = "algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=" as const;
-export type AlgorandNetwork = typeof ALGORAND_MAINNET | typeof ALGORAND_TESTNET;
+// The official constants, as the challenge guide says. At runtime the payment
+// middleware uses the exact form the GoPlausible facilitator advertises for
+// the same chain (see resolveNetwork in x402.ts).
+export const ALGORAND_MAINNET = ALGORAND_MAINNET_CAIP2;
+export const ALGORAND_TESTNET = ALGORAND_TESTNET_CAIP2;
+export type AlgorandNetwork = string;
 
 /** Required on every payment option for Global x402 Challenge attribution. */
 export const CHALLENGE_TAG = "x402-global-challenge";

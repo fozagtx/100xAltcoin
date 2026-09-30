@@ -15,7 +15,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "fake-cmc": "tsx scripts/fake-cmc.ts",
-    "pay": "tsx scripts/pay.ts"
+    "pay": "tsx scripts/pay.ts",
+    "check": "tsx scripts/check.ts",
+    "wallet": "tsx scripts/wallet.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.3",

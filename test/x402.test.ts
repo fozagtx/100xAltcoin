@@ -1,4 +1,6 @@
 import type { FacilitatorClient } from "@x402/core/server";
+import { ResourceInfoSchema } from "@x402/core/schemas";
+import { validateDiscoveryExtension } from "@x402/extensions/bazaar";
 import { describe, expect, it } from "vitest";
 
 import { createApp } from "../src/app.js";
@@ -152,6 +154,42 @@ describe("x402 on Algorand", () => {
     }
     const req = decode((await app.request("https://100xaltcoin.example.com/v1/gems")).headers.get("PAYMENT-REQUIRED"));
     expect(req.resource.serviceName ?? "100xAltcoin").toBe("100xAltcoin");
+  });
+
+  it("follows the x402 resource schema limits and declares the merchant identity", async () => {
+    const { app } = setup();
+    for (const path of ["/v1/gems", "/v1/screen", "/v1/climbers", "/v1/sectors", "/v1/asset", "/v1/digest"]) {
+      const req = decode((await app.request(`https://100xaltcoin.example.com${path}`)).headers.get("PAYMENT-REQUIRED"));
+      expect(req.resource.tags.length, path).toBeLessThanOrEqual(5);
+      expect(req.resource.tags.every((t: string) => t.length <= 32)).toBe(true);
+      expect(req.resource.serviceName).toBe("100xAltcoin");
+      expect(req.resource.iconUrl).toBe("https://100xaltcoin.example.com/logo.png");
+      expect(ResourceInfoSchema.safeParse(req.resource).success, path).toBe(true);
+      expect(req.extensions["x402-merchant"].info).toMatchObject({ name: "100xAltcoin", website: "https://100xaltcoin.example.com", logo: "https://100xaltcoin.example.com/logo.png" });
+      expect(validateDiscoveryExtension(req.extensions.bazaar).valid, path).toBe(true);
+    }
+  });
+
+  it("refuses HEAD on paid routes instead of answering a free 200", async () => {
+    const { app } = setup();
+    const head = await app.request("https://100xaltcoin.example.com/v1/gems", { method: "HEAD" });
+    expect(head.status).toBe(405);
+    expect(head.headers.get("allow")).toContain("GET");
+    expect((await app.request("https://100xaltcoin.example.com/v1/status", { method: "HEAD" })).status).toBe(200);
+  });
+
+  it("serves a PNG logo for the merchant page", async () => {
+    const { app } = setup();
+    const res = await app.request("https://100xaltcoin.example.com/logo.png");
+    expect(res.headers.get("content-type")).toBe("image/png");
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    expect(Array.from(bytes.slice(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    expect(bytes.length).toBeGreaterThan(1000);
+  });
+
+  it("reports the package version, not dev", async () => {
+    const { readVersion } = await import("../src/version.js");
+    expect(readVersion()).toMatch(/^\d+\.\d+\.\d+/);
   });
 
   it("keeps route descriptions ASCII (the AVM paywall page base64-encodes them with btoa)", async () => {

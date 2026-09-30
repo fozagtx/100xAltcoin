@@ -43,6 +43,8 @@ export interface Config {
   maxStaleMs: number;
   historyFile: string;
   historySaveEveryMs: number;
+  /** How many days of hourly rank history to keep (1-7). */
+  historyDays: number;
   publicUrl: string;
   x402: {
     enabled: boolean;
@@ -64,12 +66,26 @@ const presets: Record<string, { topN: number; fastN: number; poll: number; slow:
 
 export const DEFAULT_CMC_BASE_URL = "https://pro-api.coinmarketcap.com";
 
-/** Projected daily CMC credit burn: one credit per 200 assets per listings call. */
+/**
+ * Projected daily CMC credit burn: one credit per 200 assets per listings call.
+ * Slow-tier pages are due once (slow interval - poll interval / 2) has passed
+ * and are only fetched on poll ticks, so they refresh every
+ * ceil((slow - poll/2) / poll) polls, not exactly every slow interval.
+ */
 export function projectedCreditsPerDay(c: Pick<Config, "topN" | "fastN" | "pollIntervalMs" | "slowIntervalMs">): number {
   const day = 86_400_000;
-  const fast = Math.ceil(c.fastN / 200) * Math.floor(day / c.pollIntervalMs);
-  const slow = Math.ceil((c.topN - c.fastN) / 200) * Math.floor(day / c.slowIntervalMs);
+  const slowEvery = Math.ceil((c.slowIntervalMs - c.pollIntervalMs / 2) / c.pollIntervalMs) * c.pollIntervalMs;
+  const fast = Math.ceil(c.fastN / 200) * Math.round(day / c.pollIntervalMs);
+  const slow = Math.ceil((c.topN - c.fastN) / 200) * Math.round(day / slowEvery);
   return fast + slow;
+}
+
+/** A warning when the preset would burn more CMC credits per month than the plan allows; null otherwise or when the limit is unknown. */
+export function creditWarning(projectedPerDay: number, monthlyLimit: number, preset: string): string | null {
+  if (monthlyLimit <= 0) return null;
+  const perMonth = projectedPerDay * 31;
+  if (perMonth <= monthlyLimit * 0.9) return null;
+  return `PRESET=${preset} needs about ${perMonth} CMC credits per month but the plan allows ${monthlyLimit}: data will go stale before the month ends. Set PRESET=free (top 1000 coins, about 5.9k per month) or upgrade the CMC plan.`;
 }
 
 /** Builds the config from environment variables; throws listing every problem. */
@@ -169,7 +185,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     staleAfterMs,
     maxStaleMs,
     historyFile: str("HISTORY_FILE"),
-    historySaveEveryMs: dur("HISTORY_SAVE_EVERY", 10 * 60_000, 10_000),
+    historySaveEveryMs: dur("HISTORY_SAVE_EVERY", 30 * 60_000, 10_000),
+    historyDays: int("HISTORY_DAYS", 7, 1, 7),
     publicUrl,
     x402: {
       enabled,

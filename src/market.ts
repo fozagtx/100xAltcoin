@@ -115,8 +115,13 @@ export class Market {
     return this.snap;
   }
 
+  /**
+   * True once every tier page has loaded at least once. A first poll where
+   * only some pages succeeded is not served (and so never charged for): the
+   * failed ranks would be silently missing from every answer.
+   */
   ready(): boolean {
-    return this.snap.size > 0;
+    return this.snap.size > 0 && this.pages.every((p) => p.refreshedAt > 0 || p.quotes.length > 0);
   }
 
   /** Starts the poll and key-info loops. */

@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import type { Upstream } from "../src/cmc.js";
 import { ALGORAND_MAINNET_CAIP2 } from "@x402/avm";
 
-import { loadConfig, parseDuration, projectedCreditsPerDay } from "../src/config.js";
+import { creditWarning, loadConfig, parseDuration, projectedCreditsPerDay } from "../src/config.js";
 import { Engine, normalizeTag } from "../src/discover.js";
 import { loadHistory, saveHistory } from "../src/history-file.js";
 import { Market, Snapshot } from "../src/market.js";
@@ -115,7 +115,7 @@ describe("config", () => {
     const c = loadConfig(base);
     expect(c.x402).toMatchObject({ networkName: "mainnet", usdcAssetId: "31566704", facilitatorUrl: "https://facilitator.goplausible.xyz" });
     expect(c.x402.network).toBe(ALGORAND_MAINNET_CAIP2);
-    expect(projectedCreditsPerDay(c)).toBe(720 + 14 * 96);
+    expect(projectedCreditsPerDay(c)).toBe(720 + 14 * 103); // slow pages refresh every 14 min, not 15
   });
 
   it("requires a public https URL (MainNet is the default)", () => {
@@ -134,5 +134,41 @@ describe("config", () => {
     expect(() => loadConfig({ X402_ENABLED: "false", CMC_BASE_URL: "http://localhost:8181" })).not.toThrow();
     expect(parseDuration("15m")).toBe(900_000);
     expect(projectedCreditsPerDay(loadConfig({ ...base, PRESET: "free" })) * 31).toBeLessThan(10_000);
+  });
+});
+
+describe("operational guards", () => {
+  it("does not serve a first poll where only some pages loaded", async () => {
+    const all: Quote[] = Array.from({ length: 4 }, (_, i) => quote(1000 + i, `A${i}`, i + 1, 1e9 / (i + 1), 1e6, 0));
+    let failSecondPage = true;
+    const up: Upstream = {
+      listingsLatest: async (start, limit) => {
+        if (start === 3 && failSecondPage) throw new Error("CMC 500");
+        return { quotes: all.slice(start - 1, start - 1 + limit), credits: 1 };
+      },
+      keyInfo: async () => ({ creditLimitMonthly: 0, creditsUsedToday: 0, creditsUsedMonth: 0, fetchedAt: NOW }),
+    };
+    const m = new Market(up, { topN: 4, fastN: 4, pageSize: 2, pollIntervalMs: 60_000, slowIntervalMs: 60_000, now: () => NOW });
+    await m.poll(true);
+    expect(m.snapshot().size).toBe(2);
+    expect(m.ready()).toBe(false); // ranks 3-4 missing: paid calls answer 503 (not charged)
+    failSecondPage = false;
+    await m.poll(true);
+    expect(m.ready()).toBe(true);
+    expect(m.snapshot().size).toBe(4);
+  });
+
+  it("warns when the preset cannot fit the CMC plan", () => {
+    expect(creditWarning(2162, 10_000, "startup")).toMatch(/PRESET=startup needs about 67022.*allows 10000/);
+    expect(creditWarning(2162, 110_000, "startup")).toBeNull();
+    expect(creditWarning(192, 10_000, "free")).toBeNull();
+    expect(creditWarning(2162, 0, "startup")).toBeNull(); // plan unknown
+  });
+
+  it("keeps the history window configurable", () => {
+    const base = { CMC_API_KEY: "k", PAY_TO_ADDRESS: PAY_TO, PUBLIC_URL: "https://x.example.com" };
+    expect(loadConfig(base).historyDays).toBe(7);
+    expect(loadConfig({ ...base, HISTORY_DAYS: "3" }).historyDays).toBe(3);
+    expect(() => loadConfig({ ...base, HISTORY_DAYS: "30" })).toThrow(/HISTORY_DAYS/);
   });
 });

@@ -3,16 +3,17 @@ import { serve } from "@hono/node-server";
 
 import { createApp } from "./app.js";
 import { CmcClient } from "./cmc.js";
-import { CHALLENGE_TAG, loadConfig, projectedCreditsPerDay } from "./config.js";
+import { CHALLENGE_TAG, creditWarning, loadConfig, projectedCreditsPerDay } from "./config.js";
 import { loadHistory, saveHistory } from "./history-file.js";
 import { Market } from "./market.js";
+import { readVersion } from "./version.js";
 import { createPayments, type Payments } from "./x402.js";
 
 const log = (level: string, msg: string, extra: Record<string, unknown> = {}) =>
   console.log(JSON.stringify({ time: new Date().toISOString(), level, msg, ...extra }));
 
 const cfg = loadConfig();
-const version = process.env.npm_package_version ?? "dev";
+const version = readVersion();
 
 const market = new Market(new CmcClient(cfg.cmcBaseUrl, cfg.cmcApiKey, cfg.cmcRpm), {
   topN: cfg.topN,
@@ -21,6 +22,7 @@ const market = new Market(new CmcClient(cfg.cmcBaseUrl, cfg.cmcApiKey, cfg.cmcRp
   pollIntervalMs: cfg.pollIntervalMs,
   slowIntervalMs: cfg.slowIntervalMs,
   projectedCreditsPerDay: projectedCreditsPerDay(cfg),
+  historyWindowMs: cfg.historyDays * 24 * 3_600_000,
   log,
 });
 
@@ -71,6 +73,13 @@ if (cfg.x402.enabled) {
 const app = createApp({ config: cfg, market, payments, version });
 market.start();
 const saver = setInterval(() => void persist(), cfg.historySaveEveryMs);
+// Once CMC has told us the plan limit, say loudly if the chosen preset can't fit in it.
+const creditCheck = setInterval(() => {
+  const st = market.status();
+  const warning = creditWarning(st.projectedCreditsPerDay, st.creditLimitMonthly, cfg.preset);
+  if (warning) log("warn", warning, { credit_limit_monthly: st.creditLimitMonthly, projected_credits_per_day: st.projectedCreditsPerDay });
+}, 6 * 3_600_000);
+setTimeout(() => creditCheck.refresh(), 30_000).unref();
 
 const server = serve({ fetch: app.fetch, port: cfg.port }, (info) => {
   log("info", "100xAltcoin listening", {
@@ -91,6 +100,7 @@ const server = serve({ fetch: app.fetch, port: cfg.port }, (info) => {
 async function shutdown(signal: string) {
   log("info", "shutting down", { signal });
   clearInterval(saver);
+  clearInterval(creditCheck);
   market.stop();
   server.close();
   await persist();

@@ -73,7 +73,7 @@ export class CmcClient implements Upstream {
     try {
       res = await fetch(url, {
         headers: { "X-CMC_PRO_API_KEY": this.apiKey, Accept: "application/json" },
-        signal: signal ?? AbortSignal.timeout(30_000),
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000),
       });
     } catch (err) {
       throw new CmcError(`cmc ${path}: ${(err as Error).message}`, 0, 0, path);

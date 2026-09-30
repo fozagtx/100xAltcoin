@@ -49,7 +49,7 @@ Main parameters (all listed in `/v1/openapi.json`):
 | Facilitator | GoPlausible, `https://facilitator.goplausible.xyz` |
 | Network | Algorand MainNet (`ALGORAND_MAINNET_CAIP2`), USDC ASA `31566704` |
 | Challenge tag | `extra.tag = "x402-global-challenge"` on every payment option |
-| Discovery | Bazaar resource-server extension registered once (`@x402-avm/extensions`, as in the official demo); a declared discovery extension and a concrete description on every route |
+| Discovery | Bazaar extension from `@x402/extensions` (as in the GoPlausible docs) registered once, a declared discovery extension and a concrete description on every route, plus the optional `x402-merchant` identity (name, website, logo, categories) |
 | Entry type | Composite: six routes, one `payTo`, one domain, so they roll up to one merchant on the leaderboard |
 
 **Network id.** The config uses the SDK constants the challenge guide names.
@@ -109,8 +109,12 @@ Official guide: [The Global x402 Challenge is live](https://algorand.co/blog/the
      must not span domains.
 3. **Check the live 402:** `npm run check -- https://<your-host>` must pass on every endpoint
    (MainNet, ASA 31566704, `x402-global-challenge` tag, Bazaar extension, fee payer present).
-4. **Make one real MainNet payment** from a different wallet holding a little USDC:
-   `AVM_MNEMONIC="..." npm run pay -- https://<your-host>/v1/gems`.
+4. **Make real MainNet payments** from a different wallet holding a little USDC (and the
+   small ALGO minimum balance; network fees are sponsored by the facilitator). Each route is
+   cataloged by its own first settled payment, so pay every route once (about $0.08):
+   `AVM_MNEMONIC="..." npm run pay -- --all https://<your-host>`
+   (one route: `npm run pay -- https://<your-host>/v1/gems`). `/v1/climbers` answers 503,
+   without charging, until the service has 24h of history; run it again after a day.
    Confirm the paid response and that the USDC landed:
    `npm run wallet -- balance <PAY_TO_ADDRESS>`.
 5. **Confirm the listing** (global hackathon filter ON): after that first settlement the
@@ -146,8 +150,12 @@ The composite is a weighted sum. When rank history is missing, it is renormalize
 The only CoinMarketCap call is `/v1/cryptocurrency/listings/latest`, which every
 plan includes (free too), plus the credit-free `/v1/key/info`. The `startup`
 preset uses about 2.1k credits/day; `PRESET=free` fits the 10k/month Basic plan.
-History is saved to `HISTORY_FILE` every 10 minutes and on shutdown, so
-climbers keep working across restarts.
+History is saved to `HISTORY_FILE` every 30 minutes and on shutdown, so
+climbers keep working across restarts. `HISTORY_DAYS` (1–7, default 7) sets how
+much is kept; a full 7 days takes roughly 300 MB of memory, so `render.yaml` uses
+4 to fit the smallest Render plan (the 7-day part of the rank-climb signal needs
+the full 7). `/v1/status` warns (`credit_warning`) if the chosen preset needs more
+CoinMarketCap credits than your plan allows.
 
 ## Layout
 

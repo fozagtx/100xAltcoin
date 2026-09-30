@@ -9,6 +9,7 @@
  * resource URL) and the Bazaar discovery extension. Exits non-zero on failure.
  */
 import { normalizeAlgorandNetwork } from "@x402/avm";
+import { validateDiscoveryExtension } from "@x402/extensions/bazaar";
 
 import { ALGORAND_MAINNET, ALGORAND_TESTNET, CHALLENGE_TAG } from "../src/config.js";
 import { ENDPOINTS } from "../src/endpoints.js";
@@ -56,6 +57,12 @@ for (const ep of ENDPOINTS) {
   check(opt.extra?.tag === CHALLENGE_TAG, `extra.tag = ${CHALLENGE_TAG}`);
   check(!!opt.extra?.feePayer, "facilitator fee payer present (GoPlausible synced)");
   check(!!req.extensions?.bazaar?.info, "Bazaar discovery extension");
+  const bazaar = req.extensions?.bazaar ? validateDiscoveryExtension(req.extensions.bazaar) : { valid: false, errors: ["missing"] };
+  check(bazaar.valid, "Bazaar extension validates against its schema", bazaar.valid ? "" : (bazaar.errors ?? []).join("; "));
+  check(!!req.extensions?.["x402-merchant"]?.info?.name, "x402-merchant identity (name, website, logo)");
+  check((req.resource?.tags?.length ?? 0) <= 5, "resource.tags has at most 5 entries", `${req.resource?.tags?.length ?? 0}`);
+  check((req.resource?.serviceName ?? "").length <= 32, "serviceName is at most 32 characters", req.resource?.serviceName);
+  check(/^https:\/\//.test(req.resource?.iconUrl ?? "") || base.startsWith("http://localhost"), "iconUrl is an https URL", req.resource?.iconUrl);
   check(String(req.resource?.url ?? "").startsWith(base + ep.path), "resource URL points at this host", req.resource?.url);
   check(/^[\x20-\x7e]*$/.test(req.resource?.description ?? ""), "description is ASCII (paywall page safe)");
   console.log(`  info  price ${Number(opt.amount) / 1e6} USDC\n`);

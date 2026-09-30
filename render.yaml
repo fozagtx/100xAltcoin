@@ -6,7 +6,7 @@ services:
     healthCheckPath: /health
     disk:
       name: history
-      mountPath: /data       # HISTORY_FILE=/data/history.json.gz (set in the Dockerfile)
+      mountPath: /data
       sizeGB: 1
     envVars:
       - key: CMC_API_KEY
@@ -17,6 +17,14 @@ services:
         value: mainnet
       - key: FACILITATOR_URL
         value: https://facilitator.goplausible.xyz
+      # startup tracks the top 3000 coins and burns about 2.2k CoinMarketCap credits a day
+      # (~67k a month). If your CMC plan is Basic (10k a month) change this to "free".
       - key: PRESET
         value: startup
+      - key: HISTORY_FILE
+        value: /data/history.json.gz
+      # Days of hourly rank history kept in memory and saved to the disk. 4 fits the smallest
+      # plan (a full 7 days needs roughly 300 MB); use 7 on a bigger plan.
+      - key: HISTORY_DAYS
+        value: "4"
       # PUBLIC_URL defaults to Render's RENDER_EXTERNAL_URL (https://<name>.onrender.com)

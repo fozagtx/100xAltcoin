@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 
-import { CHALLENGE_TAG, type Config, type PaidEndpoint } from "./config.js";
+import { CHALLENGE_TAG, creditWarning, type Config, type PaidEndpoint } from "./config.js";
 import {
   AssetNotFoundError,
   Engine,
@@ -12,6 +12,7 @@ import {
 } from "./discover.js";
 import { ENDPOINTS, ParamError, paramSchema, parseParams, type Endpoint, type Parsed } from "./endpoints.js";
 import type { Snapshot } from "./market.js";
+import { LOGO_PNG } from "./logo.js";
 import { DISCOVERY_TAGS, SERVICE_NAME, type Payments } from "./x402.js";
 
 const DISCLAIMER = "Market data for information only, not financial advice.";
@@ -79,6 +80,7 @@ export function createApp(opts: AppOptions): Hono {
   app.get("/.well-known/x402", (c) => c.json(x402Manifest(cfg, network())));
   app.get("/.well-known/agent-card.json", (c) => c.json(agentCard(cfg, version)));
   app.get("/llms.txt", (c) => c.text(llmsTxt(cfg, network())));
+  app.get("/logo.png", (c) => c.body(new Uint8Array(LOGO_PNG), 200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" }));
   app.get("/logo.svg", (c) => c.body(LOGO_SVG, 200, { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=86400" }));
   app.get("/favicon.ico", (c) => c.redirect("/logo.svg", 301));
   app.get("/robots.txt", (c) => c.text(`User-agent: *\nAllow: /\n${cfg.publicUrl ? `Sitemap: ${cfg.publicUrl}/sitemap.xml\n` : ""}`));
@@ -87,7 +89,18 @@ export function createApp(opts: AppOptions): Hono {
   );
 
   // ---- paid routes: every unpaid call gets 402 from the x402 middleware ----
-  if (opts.payments) app.use("/v1/*", opts.payments.middleware);
+  if (opts.payments) {
+    // Hono answers HEAD with the GET handler, but x402 prices only "GET <path>",
+    // so a HEAD would get a free 200. Refuse it on paid routes instead.
+    const paidPaths = new Set(ENDPOINTS.map((e) => e.path));
+    app.use("/v1/*", async (c, next) => {
+      if (c.req.method === "HEAD" && paidPaths.has(c.req.path)) {
+        return c.body(null, 405, { Allow: "GET, OPTIONS" });
+      }
+      await next();
+    });
+    app.use("/v1/*", opts.payments.middleware);
+  }
 
   const handlers: Record<PaidEndpoint, (p: Parsed) => Result<unknown>> = {
     gems: (p) =>
@@ -253,6 +266,7 @@ export function createApp(opts: AppOptions): Hono {
       credits_used_today: st.creditsUsedToday,
       credits_used_month: st.creditsUsedMonth,
       credit_limit_monthly: st.creditLimitMonthly,
+      credit_warning: creditWarning(st.projectedCreditsPerDay, st.creditLimitMonthly, cfg.preset),
       projected_credits_per_day: st.projectedCreditsPerDay,
       upstream_calls: st.upstreamCalls,
       upstream_errors: st.upstreamErrors,
@@ -277,6 +291,7 @@ export function createApp(opts: AppOptions): Hono {
 function x402Manifest(cfg: Config, network: string) {
   const base = cfg.publicUrl;
   return {
+    version: 1,
     name: SERVICE_NAME,
     description: "Pay-per-call altcoin discovery: find small caps with 100x potential before they move.",
     x402Version: 2,
@@ -285,13 +300,16 @@ function x402Manifest(cfg: Config, network: string) {
     payTo: cfg.x402.payTo,
     facilitator: cfg.x402.facilitatorUrl,
     tags: [...DISCOVERY_TAGS, CHALLENGE_TAG],
-    resources: ENDPOINTS.map((e) => ({
+    // Plain URLs, as x402 discovery scanners expect; per-route detail is below.
+    resources: ENDPOINTS.map((e) => `${base}${e.path}`),
+    resourceDetails: ENDPOINTS.map((e) => ({
       resource: `${base}${e.path}`,
       method: "GET",
       price: cfg.x402.prices[e.name],
       description: e.description,
       example: e.exampleInput,
     })),
+    instructions: `${base}/llms.txt`,
   };
 }
 
@@ -303,10 +321,13 @@ function llmsTxt(cfg: Config, network: string) {
     "",
     `Payment: x402 v2, exact scheme, USDC (ASA ${cfg.x402.usdcAssetId}) on ${network}. Unpaid calls return 402 with a PAYMENT-REQUIRED header. Errors are never charged.`,
     "",
-    "## Endpoints",
-    ...ENDPOINTS.map((e) => `- GET ${cfg.publicUrl}${e.path} (${cfg.x402.prices[e.name]}): ${e.description}`),
-    `- GET ${cfg.publicUrl}/v1/status (free): health, data freshness and prices`,
-    `- GET ${cfg.publicUrl}/v1/openapi.json (free): full parameter reference`,
+    "## Paid endpoints",
+    ...ENDPOINTS.map((e) => `- [GET ${e.path}](${cfg.publicUrl}${e.path}): ${cfg.x402.prices[e.name]} per call. ${e.description}`),
+    "",
+    "## Free",
+    `- [GET /v1/status](${cfg.publicUrl}/v1/status): health, data freshness and prices`,
+    `- [GET /openapi.json](${cfg.publicUrl}/openapi.json): every parameter, price and response`,
+    `- [GET /.well-known/x402](${cfg.publicUrl}/.well-known/x402): x402 resource manifest`,
   ];
   return lines.join("\n") + "\n";
 }
@@ -322,6 +343,7 @@ function openApi(cfg: Config, version: string, network: string) {
         summary: ep.description,
         description: `${ep.description} Costs ${price} in USDC on Algorand per call via x402. Errors are never charged.`,
         "x-payment": { protocol: "x402", x402Version: 2, scheme: "exact", price, network, asset: cfg.x402.usdcAssetId },
+        "x-payment-info": { protocols: ["x402"], price: { mode: "fixed", currency: "USD", amount: price.slice(1) } },
         parameters: ep.params.map((p) => ({ name: p.name, in: "query", required: !!p.required, description: p.description, schema: paramSchema(p), ...(p.example !== undefined ? { example: p.example } : {}) })),
         responses: {
           200: { description: "Success; the PAYMENT-RESPONSE header carries the settlement receipt.", content: { "application/json": { example: ep.exampleOutput } } },
@@ -379,7 +401,7 @@ ${cfg.publicUrl ? `<link rel="canonical" href="${esc(cfg.publicUrl)}/">` : ""}
 <meta property="og:site_name" content="100xAltcoin">
 <meta property="og:title" content="100xAltcoin - find 100x altcoins before they move">
 <meta property="og:description" content="${esc(SITE_DESCRIPTION)}">
-${cfg.publicUrl ? `<meta property="og:url" content="${esc(cfg.publicUrl)}/">\n<meta property="og:image" content="${esc(cfg.publicUrl)}/logo.svg">` : ""}
+${cfg.publicUrl ? `<meta property="og:url" content="${esc(cfg.publicUrl)}/">\n<meta property="og:image" content="${esc(cfg.publicUrl)}/logo.png">` : ""}
 <meta name="twitter:card" content="summary">
 <link rel="alternate" type="application/json" title="OpenAPI" href="/openapi.json">
 <link rel="alternate" type="text/plain" title="llms.txt" href="/llms.txt">

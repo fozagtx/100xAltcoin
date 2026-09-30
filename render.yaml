@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: 100xaltcoin
+    runtime: docker
+    plan: starter            # paid instance: the free tier sleeps, which stops polling
+    healthCheckPath: /v1/status
+    disk:
+      name: history
+      mountPath: /data       # HISTORY_FILE=/data/history.json.gz is set in the Dockerfile
+      sizeGB: 1
+    envVars:
+      - key: CMC_API_KEY
+        sync: false
+      - key: X402_PAY_TO
+        sync: false
+      - key: X402_NETWORK
+        value: eip155:84532  # switch to eip155:8453 (Base) with a mainnet facilitator
+      - key: X402_FACILITATOR_URL
+        value: https://x402.org/facilitator
+      - key: PRESET
+        value: startup

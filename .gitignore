@@ -1,0 +1,11 @@
+# local config and state
+.env
+/data/
+
+# binaries
+/100xaltcoin
+/fakecmc
+/payclient
+*.exe
+*.test
+*.out

@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { Upstream } from "../src/cmc.js";
+import { ALGORAND_MAINNET_CAIP2 } from "@x402/avm";
+
 import { loadConfig, parseDuration, projectedCreditsPerDay } from "../src/config.js";
 import { Engine, normalizeTag } from "../src/discover.js";
 import { loadHistory, saveHistory } from "../src/history-file.js";
@@ -107,28 +109,30 @@ describe("market", () => {
 });
 
 describe("config", () => {
-  const base = { CMC_API_KEY: "k", PAY_TO_ADDRESS: PAY_TO };
+  const base = { CMC_API_KEY: "k", PAY_TO_ADDRESS: PAY_TO, PUBLIC_URL: "https://x.example.com" };
 
-  it("defaults to TestNet and the GoPlausible facilitator", () => {
+  it("defaults to MainNet, USDC ASA 31566704 and the GoPlausible facilitator", () => {
     const c = loadConfig(base);
-    expect(c.x402).toMatchObject({ networkName: "testnet", usdcAssetId: "10458941", facilitatorUrl: "https://facilitator.goplausible.xyz" });
-    expect(c.x402.network).toBe("algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDe"); // SDK ALGORAND_TESTNET_CAIP2
+    expect(c.x402).toMatchObject({ networkName: "mainnet", usdcAssetId: "31566704", facilitatorUrl: "https://facilitator.goplausible.xyz" });
+    expect(c.x402.network).toBe(ALGORAND_MAINNET_CAIP2);
     expect(projectedCreditsPerDay(c)).toBe(720 + 14 * 96);
   });
 
-  it("uses the SDK MainNet id and requires an https public URL on MainNet", () => {
-    expect(() => loadConfig({ ...base, ALGORAND_NETWORK: "mainnet" })).toThrow(/PUBLIC_URL/);
-    const c = loadConfig({ ...base, ALGORAND_NETWORK: "mainnet", RENDER_EXTERNAL_URL: "https://x.onrender.com/" });
-    expect(c.x402).toMatchObject({ network: "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73k", usdcAssetId: "31566704" });
+  it("requires a public https URL (MainNet is the default)", () => {
+    const noUrl = { CMC_API_KEY: "k", PAY_TO_ADDRESS: PAY_TO };
+    expect(() => loadConfig(noUrl)).toThrow(/PUBLIC_URL/);
+    expect(() => loadConfig({ ...noUrl, PUBLIC_URL: "http://x.example.com" })).toThrow(/PUBLIC_URL/);
+    const c = loadConfig({ ...noUrl, RENDER_EXTERNAL_URL: "https://x.onrender.com/" });
     expect(c.publicUrl).toBe("https://x.onrender.com");
   });
 
   it("rejects bad settings", () => {
-    expect(() => loadConfig({ CMC_API_KEY: "k", PAY_TO_ADDRESS: "nope" })).toThrow(/PAY_TO_ADDRESS/);
+    expect(() => loadConfig({ ...base, PAY_TO_ADDRESS: "nope" })).toThrow(/PAY_TO_ADDRESS/);
     expect(() => loadConfig({ ...base, PRICE_GEMS: "0.02" })).toThrow(/PRICE_GEMS/);
-    expect(() => loadConfig({ PAY_TO_ADDRESS: PAY_TO })).toThrow(/CMC_API_KEY/);
+    expect(() => loadConfig({ ...base, CMC_API_KEY: undefined })).toThrow(/CMC_API_KEY/);
+    expect(() => loadConfig({ ...base, ALGORAND_NETWORK: "devnet" })).toThrow(/ALGORAND_NETWORK/);
     expect(() => loadConfig({ X402_ENABLED: "false", CMC_BASE_URL: "http://localhost:8181" })).not.toThrow();
     expect(parseDuration("15m")).toBe(900_000);
-    expect(loadConfig({ ...base, PRESET: "free" }) && projectedCreditsPerDay(loadConfig({ ...base, PRESET: "free" })) * 31).toBeLessThan(10_000);
+    expect(projectedCreditsPerDay(loadConfig({ ...base, PRESET: "free" })) * 31).toBeLessThan(10_000);
   });
 });

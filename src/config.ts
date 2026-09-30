@@ -126,9 +126,10 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     errs.push("CMC_API_KEY is required (or point CMC_BASE_URL at the fake CMC for local dev)");
   }
 
-  const networkName = str("ALGORAND_NETWORK", "testnet").toLowerCase();
+  // MainNet is the default: the challenge only counts MainNet payments.
+  const networkName = str("ALGORAND_NETWORK", "mainnet").toLowerCase();
   if (networkName !== "mainnet" && networkName !== "testnet") {
-    errs.push(`ALGORAND_NETWORK=${JSON.stringify(networkName)}: want mainnet or testnet`);
+    errs.push(`ALGORAND_NETWORK=${JSON.stringify(networkName)}: want mainnet (the default) or testnet`);
   }
   const mainnet = networkName === "mainnet";
   const enabled = bool("X402_ENABLED", true);

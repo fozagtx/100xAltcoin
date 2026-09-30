@@ -46,9 +46,8 @@ Main parameters (all listed in `/v1/openapi.json`):
 | | |
 | --- | --- |
 | Protocol | x402 v2, `exact` scheme, official `@x402/hono` + `@x402/avm` |
-| Facilitator | GoPlausible, `https://facilitator.goplausible.xyz` (TestNet and MainNet) |
-| MainNet | `ALGORAND_MAINNET_CAIP2`, USDC ASA `31566704` |
-| TestNet | `ALGORAND_TESTNET_CAIP2`, USDC ASA `10458941` |
+| Facilitator | GoPlausible, `https://facilitator.goplausible.xyz` |
+| Network | Algorand MainNet (`ALGORAND_MAINNET_CAIP2`), USDC ASA `31566704` |
 | Challenge tag | `extra.tag = "x402-global-challenge"` on every payment option |
 | Discovery | Bazaar resource-server extension registered once (`@x402-avm/extensions`, as in the official demo); a declared discovery extension and a concrete description on every route |
 | Entry type | Composite: six routes, one `payTo`, one domain, so they roll up to one merchant on the leaderboard |
@@ -89,26 +88,18 @@ CMC_BASE_URL=http://localhost:8181 X402_ENABLED=false npm run dev
 curl 'localhost:3000/v1/gems?limit=5'
 ```
 
-**TestNet payments:** copy `.env.example` to `.env`, then set `CMC_API_KEY`,
-`PAY_TO_ADDRESS` and `ALGORAND_NETWORK=testnet`.
-
-```sh
-npm run dev
-curl -i localhost:3000/v1/gems                    # 402 + PAYMENT-REQUIRED
-AVM_MNEMONIC="..." npm run pay -- 'http://localhost:3000/v1/gems?limit=5'
-```
-
-The payer wallet must be opted in to TestNet USDC (ASA 10458941) and hold some.
+MainNet is the default network. Payments need a public HTTPS URL, so they run on your
+deployment (see the checklist below), not on localhost.
 
 ## Challenge checklist (submissions close September 30, 2026)
 
 Official guide: [The Global x402 Challenge is live](https://algorand.co/blog/the-x402-global-challenge-is-live-how-to-build-submit-your-entry).
 
-1. **Test on TestNet:** run locally with `ALGORAND_NETWORK=testnet`, confirm
-   `npm run check` passes, then pay once with `npm run pay`. `npm run wallet`
-   creates, opts in and inspects test wallets. TestNet doesn't count toward the leaderboard.
-2. **Switch to MainNet and deploy.** On Render, go to New → Blueprint and pick this repo;
-   `render.yaml` sets `ALGORAND_NETWORK=mainnet`, the GoPlausible facilitator and a disk
+1. **Receiving wallet:** create a MainNet account in a wallet app (Pera, Defly or Lute), keep
+   its recovery phrase offline, and opt it in to USDC (ASA 31566704; needs about 0.2 ALGO).
+   Its public address is your `PAY_TO_ADDRESS`.
+2. **Deploy.** On Render, go to New → Blueprint and pick this repo;
+   `render.yaml` sets MainNet, the GoPlausible facilitator and a disk
    for the history file. Enter `CMC_API_KEY` and `PAY_TO_ADDRESS` when prompted.
    - `PAY_TO_ADDRESS` must be a MainNet account you control, opted in to USDC (ASA 31566704).
      It's the public address only, never the recovery phrase.
@@ -119,9 +110,9 @@ Official guide: [The Global x402 Challenge is live](https://algorand.co/blog/the
 3. **Check the live 402:** `npm run check -- https://<your-host>` must pass on every endpoint
    (MainNet, ASA 31566704, `x402-global-challenge` tag, Bazaar extension, fee payer present).
 4. **Make one real MainNet payment** from a different wallet holding a little USDC:
-   `ALGORAND_NETWORK=mainnet AVM_MNEMONIC="..." npm run pay -- https://<your-host>/v1/gems`.
+   `AVM_MNEMONIC="..." npm run pay -- https://<your-host>/v1/gems`.
    Confirm the paid response and that the USDC landed:
-   `ALGORAND_NETWORK=mainnet npm run wallet -- balance <PAY_TO_ADDRESS>`.
+   `npm run wallet -- balance <PAY_TO_ADDRESS>`.
 5. **Confirm the listing** (global hackathon filter ON): after that first settlement the
    endpoints appear in the
    [Bazaar resource catalog](https://facilitator.goplausible.xyz/dashboard/leaderboards?cat=resources),

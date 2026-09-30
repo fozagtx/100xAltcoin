@@ -5,9 +5,9 @@
  *   AVM_MNEMONIC="25 words ..." npm run pay -- https://your-host/v1/gems?limit=5
  *
  * Use this to make the MainNet payment the Global x402 Challenge requires.
- * The payer account must be opted in to USDC (ASA 31566704 on MainNet,
- * 10458941 on TestNet) and hold enough of it. Before signing, the quoted
- * price is checked against MAX_USD (default 0.10).
+ * The payer account must be opted in to USDC (ASA 31566704) and hold enough
+ * of it. Before signing, the quoted price is checked against MAX_USD
+ * (default 0.10).
  */
 import "dotenv/config";
 import { toClientAvmSigner } from "@x402/avm";

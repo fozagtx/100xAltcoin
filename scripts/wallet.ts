@@ -1,22 +1,21 @@
 /**
- * Wallet helpers for testing payments (uses the public AlgoNode endpoints).
+ * MainNet wallet helpers (uses the public AlgoNode endpoint).
  *
- *   npm run wallet -- new                  create a throwaway account (prints address + mnemonic)
+ *   npm run wallet -- new                  create a new account (prints address + mnemonic)
  *   npm run wallet -- balance [address]    ALGO and USDC balance (default: AVM_MNEMONIC's account)
  *   npm run wallet -- optin                opt AVM_MNEMONIC's account in to USDC (needs ~0.2 ALGO)
  *
- * ALGORAND_NETWORK=testnet|mainnet picks the network (default testnet).
- * Receiving USDC requires an opt-in, so both the payer and PAY_TO_ADDRESS
- * must be opted in.
+ * Receiving USDC requires an opt-in, so PAY_TO_ADDRESS must be opted in
+ * before the first payment. A wallet app (Pera, Defly, Lute) is the safer
+ * place to keep a wallet that holds real funds.
  */
 import "dotenv/config";
-import { USDC_MAINNET_ASA_ID, USDC_TESTNET_ASA_ID } from "@x402/avm";
+import { USDC_MAINNET_ASA_ID } from "@x402/avm";
 import algosdk from "algosdk";
 
-const mainnet = (process.env.ALGORAND_NETWORK ?? "testnet").trim().toLowerCase() === "mainnet";
-const usdc = BigInt(mainnet ? USDC_MAINNET_ASA_ID : USDC_TESTNET_ASA_ID);
-const algod = new algosdk.Algodv2("", mainnet ? "https://mainnet-api.algonode.cloud" : "https://testnet-api.algonode.cloud", "");
-const label = mainnet ? "MainNet" : "TestNet";
+const usdc = BigInt(USDC_MAINNET_ASA_ID);
+const algod = new algosdk.Algodv2("", "https://mainnet-api.algonode.cloud", "");
+const label = "MainNet";
 
 function account() {
   const m = process.env.AVM_MNEMONIC?.trim();
@@ -38,8 +37,7 @@ switch (cmd) {
     const acct = algosdk.generateAccount();
     console.log(`address:  ${acct.addr.toString()}`);
     console.log(`mnemonic: ${algosdk.secretKeyToMnemonic(acct.sk)}`);
-    console.log("\nKeep the mnemonic secret. Fund it with ALGO, then run `npm run wallet -- optin`.");
-    if (!mainnet) console.log("TestNet ALGO: https://bank.testnet.algorand.network  TestNet USDC: https://faucet.circle.com (Algorand Testnet)");
+    console.log("\nKeep the mnemonic secret and offline. Fund the account with a little ALGO, then run `npm run wallet -- optin`.");
     break;
   }
   case "balance":

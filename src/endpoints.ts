@@ -19,7 +19,6 @@ export interface Endpoint {
   path: string;
   /** Plain ASCII only: the AVM paywall page base64-encodes it with btoa. */
   description: string;
-  telegram: string;
   params: Param[];
   /** Example query for Bazaar (what a crawler or agent can call). */
   exampleInput: Record<string, string | number | boolean>;
@@ -30,12 +29,11 @@ const limit = (def: number, max = 50): Param => ({
   name: "limit", type: "integer", default: def, min: 1, max, description: "Maximum number of rows returned.",
 });
 
-// Example outputs use numbers from the live Telegram bot output.
+// Example outputs use realistic numbers.
 export const ENDPOINTS: Endpoint[] = [
   {
     name: "gems",
     path: "/v1/gems",
-    telegram: "/gems and New gem alerts",
     description:
       "Top 100x altcoin candidates right now: up to 50 small-cap coins (1M-50M USD market cap) ranked by a 0-100 score from turnover, CoinMarketCap rank climb, listing age and sector heat, each with plain-English reasons and risk flags.",
     params: [
@@ -59,7 +57,6 @@ export const ENDPOINTS: Endpoint[] = [
   {
     name: "screen",
     path: "/v1/screen",
-    telegram: "/screen",
     description:
       "Coin screener over the CoinMarketCap top 3000: filter by market cap, 24h volume, turnover, 1h/24h/7d price change, tags and listing age. By default returns the 10 highest-turnover coins under 50M USD market cap.",
     params: [
@@ -92,7 +89,6 @@ export const ENDPOINTS: Endpoint[] = [
   {
     name: "climbers",
     path: "/v1/climbers",
-    telegram: "Rank climber alerts",
     description:
       "Biggest CoinMarketCap rank climbers of the last 24 hours: each coin's rank now and 24h ago, rank change in places and percent, price change, market cap and volume. direction=down returns the biggest fallers.",
     params: [
@@ -109,7 +105,6 @@ export const ENDPOINTS: Endpoint[] = [
   {
     name: "sectors",
     path: "/v1/sectors",
-    telegram: "/sectors and /sector <tag>",
     description:
       "Hottest crypto sectors right now: CoinMarketCap tags ranked by heat (median 24h move of their coins), with member count, 7d change, volume, market cap and the top 3 leading coins. sector=<tag> returns that sector's coins.",
     params: [
@@ -126,7 +121,6 @@ export const ENDPOINTS: Endpoint[] = [
   {
     name: "asset",
     path: "/v1/asset",
-    telegram: "/asset <query>",
     description:
       "Full 100x scorecard for one coin by symbol, name, slug or CMC id: price, market cap, supply, 0-100 score with signal breakdown, reasons, risk flags and hourly rank history.",
     params: [
@@ -143,7 +137,6 @@ export const ENDPOINTS: Endpoint[] = [
   {
     name: "digest",
     path: "/v1/digest",
-    telegram: "Daily digest",
     description: 
       "Daily altcoin digest in one call: the top 5 100x candidates with scores, the 3 biggest 24h rank climbers and the 3 hottest sectors with their leading coins.",
     params: [

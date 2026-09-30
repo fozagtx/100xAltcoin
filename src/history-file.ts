@@ -14,8 +14,7 @@ const VERSION = 2;
 /**
  * What the history file holds: the hourly rank history behind /v1/climbers
  * and the rank-climb signal, plus the last snapshot. Without it every restart
- * wipes 24h of history (the Telegram bot's digest kept saying "not enough
- * history yet" for exactly this reason).
+ * wipes 24h of history and /v1/climbers stays unavailable until it rebuilds.
  */
 export interface HistoryState {
   version: number;

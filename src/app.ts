@@ -386,7 +386,7 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 function docsPage(cfg: Config, paid: boolean, version: string) {
   const base = cfg.publicUrl || "https://your-host";
   const rows = ENDPOINTS.map((e) =>
-    `<tr><td><code>GET ${esc(e.path)}</code></td><td class="price">${esc(cfg.x402.prices[e.name])}${paid ? "" : " (off)"}</td><td class="muted">${esc(e.telegram)}</td><td>${esc(e.description)}</td></tr>`,
+    `<tr><td><code>GET ${esc(e.path)}</code></td><td class="price">${esc(cfg.x402.prices[e.name])}${paid ? "" : " (off)"}</td><td>${esc(e.description)}</td></tr>`,
   ).join("\n");
   return `<!doctype html>
 <html lang="en">
@@ -432,11 +432,11 @@ pre { background: var(--code); padding: 14px 16px; border-radius: 8px; overflow-
 <p class="lead">Pay-per-call altcoin discovery for AI agents. Every call scores the CoinMarketCap top ${cfg.topN} on turnover, rank climb, listing age and sector heat to surface small caps before they move. Paid per call in USDC on Algorand ${esc(cfg.x402.networkName)} with x402: no API key, no signup.</p>
 <h2>Endpoints</h2>
 <div class="wrap"><table>
-<thead><tr><th>Endpoint</th><th>Price</th><th>Telegram equivalent</th><th>Returns</th></tr></thead>
+<thead><tr><th>Endpoint</th><th>Price</th><th>Returns</th></tr></thead>
 <tbody>
 ${rows}
-<tr><td><code>GET /v1/status</code></td><td class="price">free</td><td class="muted">/status</td><td>Health, data age, history depth, prices and payment settings.</td></tr>
-<tr><td><code>GET /v1/openapi.json</code></td><td class="price">free</td><td></td><td>Every parameter, price and response.</td></tr>
+<tr><td><code>GET /v1/status</code></td><td class="price">free</td><td>Health, data age, history depth, prices and payment settings.</td></tr>
+<tr><td><code>GET /v1/openapi.json</code></td><td class="price">free</td><td>Every parameter, price and response.</td></tr>
 </tbody></table></div>
 <h2>How paying works</h2>
 <p>Call a paid endpoint without payment and you get <code>402</code> with a base64 <code>PAYMENT-REQUIRED</code> header: the USDC amount (ASA ${esc(cfg.x402.usdcAssetId)}), network and recipient. Sign that USDC transfer and retry with <code>PAYMENT-SIGNATURE</code>; the GoPlausible facilitator verifies and settles it on Algorand. Only successful answers are settled, so errors are never charged.</p>

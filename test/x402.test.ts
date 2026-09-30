@@ -1,0 +1,116 @@
+import type { FacilitatorClient } from "@x402/core/server";
+import { describe, expect, it } from "vitest";
+
+import { createApp } from "../src/app.js";
+import { ALGORAND_MAINNET, CHALLENGE_TAG } from "../src/config.js";
+import { createPaymentMiddleware } from "../src/x402.js";
+import { NOW, PAY_TO, stubMarket, testConfig } from "./helpers.js";
+
+/** A GoPlausible stand-in that accepts every payment and records calls. */
+function fakeFacilitator() {
+  const calls = { verify: 0, settle: 0, lastRequirements: undefined as Record<string, unknown> | undefined };
+  const client = {
+    getSupported: async () => ({
+      kinds: [{ x402Version: 2, scheme: "exact", network: ALGORAND_MAINNET, extra: { feePayer: PAY_TO } }],
+      extensions: ["bazaar"],
+      signers: {},
+    }),
+    verify: async (_payload: unknown, requirements: Record<string, unknown>) => {
+      calls.verify++;
+      calls.lastRequirements = requirements;
+      return { isValid: true, payer: "PAYER" };
+    },
+    settle: async () => {
+      calls.settle++;
+      return { success: true, transaction: "TXID123", network: ALGORAND_MAINNET, payer: "PAYER" };
+    },
+  } as unknown as FacilitatorClient;
+  return { client, calls };
+}
+
+function setup(market = stubMarket()) {
+  const cfg = testConfig();
+  const fac = fakeFacilitator();
+  const app = createApp({ config: cfg, market, payment: createPaymentMiddleware(cfg, fac.client), now: () => NOW });
+  return { app, fac, market };
+}
+
+const decode = (h: string | null) => JSON.parse(Buffer.from(h ?? "", "base64").toString("utf8"));
+
+async function paymentFor(app: ReturnType<typeof setup>["app"], path: string) {
+  const res = await app.request(`https://100xaltcoin.example.com${path}`);
+  const required = decode(res.headers.get("PAYMENT-REQUIRED"));
+  // A syntactically complete x402 v2 AVM payload; the fake facilitator accepts it.
+  const payload = {
+    x402Version: 2,
+    resource: required.resource,
+    accepted: required.accepts[0],
+    payload: { paymentGroup: ["c2lnbmVkLXR4bg=="], paymentIndex: 0 },
+    extensions: required.extensions,
+  };
+  return Buffer.from(JSON.stringify(payload)).toString("base64");
+}
+
+describe("x402 on Algorand", () => {
+  it("answers every unpaid paid-route call with 402 and challenge-ready requirements", async () => {
+    const { app, fac } = setup();
+    for (const path of ["/v1/gems", "/v1/screen", "/v1/climbers", "/v1/sectors", "/v1/asset", "/v1/digest"]) {
+      const res = await app.request(`https://100xaltcoin.example.com${path}`);
+      expect(res.status, path).toBe(402);
+      const body = await res.json();
+      expect(body.error.code).toBe("payment_required");
+      const req = decode(res.headers.get("PAYMENT-REQUIRED"));
+      expect(req.x402Version).toBe(2);
+      expect(req.resource.url).toBe(`https://100xaltcoin.example.com${path}`);
+      const opt = req.accepts[0];
+      expect(opt).toMatchObject({ scheme: "exact", network: ALGORAND_MAINNET, asset: "31566704", payTo: PAY_TO });
+      expect(opt.extra.tag).toBe(CHALLENGE_TAG);
+      expect(req.extensions.bazaar.info.input.method).toBe("GET");
+    }
+    const gems = decode((await app.request("https://100xaltcoin.example.com/v1/gems")).headers.get("PAYMENT-REQUIRED"));
+    expect(gems.accepts[0].amount).toBe("20000"); // $0.02 in 6-decimal USDC
+    expect(fac.calls.verify).toBe(0);
+  });
+
+  it("verifies, serves and settles a paid call", async () => {
+    const { app, fac } = setup();
+    const sig = await paymentFor(app, "/v1/gems?limit=2");
+    const res = await app.request("https://100xaltcoin.example.com/v1/gems?limit=2", { headers: { "PAYMENT-SIGNATURE": sig } });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data).toHaveLength(2);
+    expect(decode(res.headers.get("PAYMENT-RESPONSE")).transaction).toBe("TXID123");
+    expect(fac.calls).toMatchObject({ verify: 1, settle: 1 });
+    expect(fac.calls.lastRequirements).toMatchObject({ amount: "20000", asset: "31566704", extra: { tag: CHALLENGE_TAG } });
+  });
+
+  it("never settles a paid call that fails", async () => {
+    const { app, fac } = setup();
+    for (const path of ["/v1/asset?asset=doesnotexist", "/v1/gems?limit=500", "/v1/climbers"]) {
+      const sig = await paymentFor(app, path);
+      const res = await app.request(`https://100xaltcoin.example.com${path}`, { headers: { "PAYMENT-SIGNATURE": sig } });
+      expect(res.status, path).toBeGreaterThanOrEqual(400);
+    }
+    expect(fac.calls.settle).toBe(0);
+  });
+
+  it("keeps the free routes free", async () => {
+    const { app, fac } = setup();
+    for (const path of ["/", "/health", "/v1/status", "/v1/openapi.json", "/.well-known/x402", "/llms.txt"]) {
+      const res = await app.request(`https://100xaltcoin.example.com${path}`);
+      expect(res.status, path).toBe(200);
+    }
+    const manifest = await (await app.request("https://100xaltcoin.example.com/.well-known/x402")).json();
+    expect(manifest.tags).toContain(CHALLENGE_TAG);
+    expect(manifest.resources).toHaveLength(6);
+    expect(fac.calls.verify).toBe(0);
+  });
+
+  it("keeps route descriptions ASCII (the AVM paywall page base64-encodes them with btoa)", async () => {
+    const { app } = setup();
+    for (const path of ["/v1/gems", "/v1/screen", "/v1/climbers", "/v1/sectors", "/v1/asset", "/v1/digest"]) {
+      const req = decode((await app.request(`https://100xaltcoin.example.com${path}`)).headers.get("PAYMENT-REQUIRED"));
+      expect(/^[\x20-\x7e]*$/.test(req.resource.description), path).toBe(true);
+    }
+  });
+});

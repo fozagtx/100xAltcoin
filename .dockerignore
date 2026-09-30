@@ -1,5 +1,5 @@
-.git
-.env
+node_modules
+dist
 data
-*.md
-!README.md
+.env
+.git

@@ -1,16 +1,21 @@
 # syntax=docker/dockerfile:1
-FROM golang:1.24-alpine AS build
-WORKDIR /src
-RUN apk add --no-cache git
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=$(git describe --tags --always 2>/dev/null || echo dev)" -o /100xaltcoin ./cmd/100xaltcoin
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY src ./src
+COPY scripts ./scripts
+COPY test ./test
+RUN npm run build && npm prune --omit=dev
 
-# Runs as root so it can write the history file on a mounted disk
-# (Render and Railway mount volumes root-owned). The image has no shell.
-FROM gcr.io/distroless/static-debian12
-COPY --from=build /100xaltcoin /100xaltcoin
-ENV HISTORY_FILE=/data/history.json.gz
-EXPOSE 8080
-ENTRYPOINT ["/100xaltcoin"]
+FROM node:22-alpine
+WORKDIR /app
+ENV NODE_ENV=production \
+    HISTORY_FILE=/data/history.json.gz \
+    PORT=3000
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY package.json ./
+EXPOSE 3000
+CMD ["node", "dist/src/server.js"]

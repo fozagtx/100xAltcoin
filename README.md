@@ -1,189 +1,144 @@
 # 100xAltcoin
 
-Pay-per-call altcoin discovery for AI agents, paid with [x402](https://x402.org).
-It watches the CoinMarketCap top N, keeps its own hourly rank history, and
-scores every small cap on four transparent signals (turnover, rank climb,
-listing age, sector heat) to surface candidates before they move. Each call
-costs a few cents in USDC on Base: no API key, no signup, no subscription.
+Pay-per-call altcoin discovery for AI agents, built on **x402 on Algorand**.
+100xAltcoin watches the CoinMarketCap top 3000, keeps its own hourly rank
+history, and scores every small cap on four transparent signals (turnover,
+rank climb, listing age, sector heat) to surface coins with 100x potential
+before they move. Each call is paid in USDC on Algorand. There's no API key and no signup.
 
-It is the HTTP/x402 version of the [CoinStack](https://github.com/fozagtx/coinstack)
-Telegram bot, rebuilt on the parts of it that proved to work.
+Built for the [Algorand Global x402 Challenge](https://algorand.co/global-x402-challenge)
+as a **Composite** entry: six paid endpoints, one `payTo` address.
 **Market data for information only, not financial advice.**
 
 ## Endpoints
 
-| Endpoint | Price | Telegram command it replaces | Returns |
-| --- | --- | --- | --- |
-| `GET /v1/gems` | $0.02 | `/gems`, "New gem" alerts | Top-scored candidates: 0–100 score, signal breakdown, reasons, risk flags |
-| `GET /v1/screen` | $0.01 | `/screen` | Filtered universe; defaults to top turnover under $50M |
-| `GET /v1/climbers` | $0.01 | `/climbers`, "Rank climber" alerts | Biggest CMC rank climbers (or fallers) over 24h |
-| `GET /v1/sectors` | $0.01 | `/sectors`, `/sector <tag>` | Sectors ranked by heat with leaders; `?sector=` for members |
-| `GET /v1/asset` | $0.01 | `/asset <query>` | One tracked asset: score, signals, risk flags, rank history |
-| `GET /v1/digest` | $0.03 | Daily digest | Top gems + climbers + hot sectors in one call |
-| `GET /v1/status` | free | `/status` | Health, data age, history depth, credit use, prices, payment status |
-| `GET /v1/openapi.json` | free | | OpenAPI 3.0 with every parameter and price |
-| `GET /` | free | | Docs page |
+| Endpoint | Price | Returns |
+| --- | --- | --- |
+| `GET /v1/gems` | $0.02 | Top 100x candidates: 0–100 score, signal breakdown, reasons, risk flags |
+| `GET /v1/screen` | $0.01 | Screened universe; defaults to top turnover under $50M market cap |
+| `GET /v1/climbers` | $0.01 | Biggest CMC rank climbers (or fallers) over 24h |
+| `GET /v1/sectors` | $0.01 | Hottest sectors with leaders; `?sector=` for one sector's members |
+| `GET /v1/asset` | $0.01 | One coin in detail: score, signals, risk flags, rank history |
+| `GET /v1/digest` | $0.03 | Top gems + climbers + hot sectors in one call |
+| `GET /v1/status` | free | Health, data age, history depth, prices, payment settings |
+| `GET /v1/openapi.json` | free | Every parameter, price and response |
+| `GET /.well-known/x402`, `/llms.txt` | free | Machine-readable service descriptions for agents |
+| `GET /` | free | Docs page |
 
-Prices are configurable (`PRICE_*`). Every parameter is in `/v1/openapi.json`;
-the most useful ones:
+Every paid endpoint returns **HTTP 402** when called without payment, even with
+no parameters, so crawlers and the Bazaar can always price it. Every parameter
+has a default, so a bare paid call also returns useful data.
 
-- `/v1/gems`: `max_market_cap` (50M), `min_market_cap` (1M), `min_volume` (100k),
-  `listed_within_days`, `sector`, `include_pumped`, `limit` (10, max 50)
-- `/v1/screen`: `min/max_market_cap`, `min/max_volume`, `min_turnover`,
-  `min/max_change_{1h,24h,7d}_pct`, `tag` (comma list), `sort`, `order`, `limit`
-- `/v1/climbers`: `direction` (`up`/`down`), `min_volume`, `max_market_cap`, `limit`
-- `/v1/sectors`: `sort`, `min_members`, `sector` (matched loosely: `AI Big Data` = `ai-big-data`), `limit`
-- `/v1/asset`: `asset` = CMC id, symbol, slug or name
-- `/v1/digest`: `gems`, `climbers`, `sectors` (section sizes)
+Main parameters (all listed in `/v1/openapi.json`):
 
-### What was removed, and why
+- **`/v1/gems`:** `max_market_cap` (50M), `min_market_cap` (1M), `min_volume` (100k), `listed_within_days`, `sector`, `include_pumped`, `limit`
+- **`/v1/screen`:**
+  - market cap and volume: `min/max_market_cap`, `min/max_volume`, `min_turnover`
+  - price change: `min/max_change_{1h,24h,7d}_pct`
+  - other: `tag`, `listed_within_days`, `sort`, `order`, `limit`
+- **`/v1/climbers`:** `direction` (`up`/`down`), `min_volume`, `max_market_cap`, `limit`
+- **`/v1/sectors`:** `sort`, `min_members`, `sector` (matched loosely, so `AI Big Data` = `ai-big-data`), `limit`
+- **`/v1/asset`:** `asset` = CMC id, symbol, slug or name (default `ETH`)
+- **`/v1/digest`:** `gems`, `climbers`, `sectors` (section sizes)
 
-The Telegram output showed gems, screen, rank-climber alerts, hot sectors and
-the digest working. Everything else was dropped or rebuilt on that same data:
+## x402 on Algorand
 
-| Removed | Why |
+| | |
 | --- | --- |
-| `/new` (new listings) | Needs CMC `/v1/cryptocurrency/listings/new`, which is only on the Startup plan and up; no "New listing" alert appears anywhere in the bot's output. |
-| `/climbers 7d` | Needs 7 days of unbroken history; restarts kept wiping it. Only the 24h window is offered. |
-| `/resolve` and lookups outside the top N | Needed CMC `/map`, `/quotes/latest` and `/info`. `/v1/asset` now reads only the tracked snapshot. |
+| Protocol | x402 v2, `exact` scheme, official `@x402/hono` + `@x402/avm` |
+| Facilitator | GoPlausible, `https://facilitator.goplausible.xyz` |
+| MainNet | `algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=`, USDC ASA `31566704` |
+| TestNet | `algorand:SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=`, USDC ASA `10458941` |
+| Challenge tag | `extra.tag = "x402-global-challenge"` on every payment option |
+| Discovery | Bazaar extension (input example, input schema, output example) on every paid route |
 
-The service now makes exactly one kind of CMC call,
-`/v1/cryptocurrency/listings/latest` (available on every plan, free included),
-plus the credit-free `/v1/key/info`.
+The network ids are the full genesis-hash form GoPlausible advertises; the
+SDK's exported constants are truncated, so they are hard-coded in `src/config.ts`.
+Route descriptions are plain ASCII, because the AVM paywall page base64-encodes
+them with `btoa` and fails on characters like em dashes.
 
-Two CoinStack problems are also fixed:
+**Paid calls that fail are not charged.** If a paid call fails (bad parameter,
+unknown coin, data not loaded yet, or climbers before 24h of history), the
+handler answers 4xx/5xx and the x402 middleware skips settlement. Your USDC
+never moves.
 
-- **Freshness.** CoinStack's HTTP API judged staleness by the oldest CMC
-  `last_updated` across ~3000 assets, so one dormant token could turn every
-  endpoint into a 503 while the Telegram bot (which never checked) kept
-  working. Freshness is now measured from when each page last came back from CMC.
-- **History across restarts.** The rank history behind climbers and the
-  rank-climb signal lived in memory, so after every restart the digest said
-  "Climbers: not enough history yet". It is now saved to `HISTORY_FILE`
-  every 10 minutes and on shutdown.
-
-## How paying works
-
-```
-GET /v1/gems                        -> 402, PAYMENT-REQUIRED: <base64 {amount, asset: USDC, network, payTo}>
-GET /v1/gems + PAYMENT-SIGNATURE    -> facilitator verifies -> handler runs -> facilitator settles
-                                    -> 200, PAYMENT-RESPONSE: <base64 {transaction, network, payer}>
-```
-
-- x402 v2, `exact` scheme, USDC via EIP-3009 (the payer signs; the facilitator pays gas).
-- **You are never charged for an error.** Bad parameters, stale data and
-  missing history are refused *before* payment is requested, and a handler
-  error (e.g. unknown asset) is verified but never settled.
-- Until the facilitator has been reached, paid routes answer
-  `503 payments_unavailable` rather than asking for a payment nobody can verify.
-- CORS is open, and the payment headers are exposed, so browser agents work too.
-
-Any x402 v2 client can pay. TypeScript:
-
-```ts
-import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
-import { ExactEvmScheme } from "@x402/evm";
-import { privateKeyToAccount } from "viem/accounts";
-
-const account = privateKeyToAccount(process.env.EVM_PRIVATE_KEY as `0x${string}`);
-const pay = wrapFetchWithPaymentFromConfig(fetch, {
-  schemes: [{ network: "eip155:*", client: new ExactEvmScheme(account) }],
-});
-const res = await pay("https://your-host/v1/gems?limit=5");
-console.log(await res.json());
-```
-
-Go (bundled): `PAYER_PRIVATE_KEY=0x... go run ./cmd/payclient -url https://your-host/v1/gems`
-checks the price against `-max` (default $0.10), pays and prints the settlement.
-
-## Quickstart
-
-### Local, no keys, no payments
+## Run it
 
 ```sh
-go run ./cmd/fakecmc                      # fake CoinMarketCap on :8181
-CMC_BASE_URL=http://localhost:8181 X402_ENABLED=false go run ./cmd/100xaltcoin
-curl 'localhost:8080/v1/gems?limit=5'
-curl localhost:8080/v1/status
+npm install
+npm test
 ```
 
-### With payments on Base Sepolia (testnet)
+**Local, no keys, no payments:**
 
 ```sh
-cp .env.example .env    # set CMC_API_KEY and X402_PAY_TO (your address)
-go run ./cmd/100xaltcoin
-curl -i 'localhost:8080/v1/gems'          # 402 + PAYMENT-REQUIRED
-PAYER_PRIVATE_KEY=0x... go run ./cmd/payclient -url 'http://localhost:8080/v1/gems?limit=5'
+npm run fake-cmc                                  # fake CoinMarketCap on :8181
+CMC_BASE_URL=http://localhost:8181 X402_ENABLED=false npm run dev
+curl 'localhost:3000/v1/gems?limit=5'
 ```
 
-The payer needs Base Sepolia USDC from <https://faucet.circle.com>.
+**TestNet payments:** copy `.env.example` to `.env`, then set `CMC_API_KEY`,
+`PAY_TO_ADDRESS` and `ALGORAND_NETWORK=testnet`.
 
-### Going live on Base mainnet
+```sh
+npm run dev
+curl -i localhost:3000/v1/gems                    # 402 + PAYMENT-REQUIRED
+AVM_MNEMONIC="..." npm run pay -- 'http://localhost:3000/v1/gems?limit=5'
+```
 
-Set `X402_NETWORK=eip155:8453` and point `X402_FACILITATOR_URL` at a
-facilitator that settles on Base mainnet (the default `x402.org` facilitator
-is for testnet). If it needs a static token, put it in `X402_FACILITATOR_AUTH`
-(sent as the `Authorization` header). `/v1/status` shows whether the
-facilitator sync succeeded.
+The payer wallet must be opted in to TestNet USDC (ASA 10458941) and hold some.
+
+## Challenge checklist (deadline: September 30, 2026)
+
+1. **Test on TestNet** as above.
+2. **Deploy to MainNet.** On Render, go to New → Blueprint and pick this repo; `render.yaml` sets
+   `ALGORAND_NETWORK=mainnet`, the GoPlausible facilitator and a disk for the history
+   file. Enter `CMC_API_KEY` and `PAY_TO_ADDRESS` when prompted. `PAY_TO_ADDRESS` must be
+   opted in to MainNet USDC (ASA 31566704). `PUBLIC_URL` defaults to Render's
+   `https://<name>.onrender.com`.
+3. **Check the 402:** `curl -i https://<your-host>/v1/gems` should return 402, and the
+   decoded `PAYMENT-REQUIRED` should show the MainNet network, asset `31566704` and
+   `extra.tag: "x402-global-challenge"`.
+4. **Make a real MainNet payment:** `AVM_MNEMONIC="..." npm run pay -- https://<your-host>/v1/gems`.
+   Confirm the USDC arrived at `PAY_TO_ADDRESS`. The first settlement catalogs the
+   endpoint in the Bazaar.
+5. **Confirm the listing:** the endpoint should appear in the GoPlausible Bazaar and on the leaderboard.
+6. **Submit** the GitHub repo through the challenge submission form (Electric Capital).
 
 ## How the score works
 
-Composite = weighted sum, renormalized when rank history is missing:
+The composite is a weighted sum. When rank history is missing, it is renormalized over the other signals.
 
 | Signal | Weight | What it measures |
 | --- | --- | --- |
-| turnover | 0.30 | `volume_24h / market_cap` on a 0.05–2 log band, blended with a surge term vs. the asset's own 7-day baseline |
-| rank_climb | 0.30 | rank gains over 24h (60%) and 7d (40%), from the service's own hourly history |
+| turnover | 0.30 | `volume_24h / market_cap` on a 0.05–2 log band, blended with a surge vs. the coin's 7-day baseline |
+| rank_climb | 0.30 | CMC rank gains over 24h (60%) and 7d (40%), from the service's own hourly history |
 | new_listing | 0.20 | listing recency, linear decay to 0 at 90 days |
-| sector_heat | 0.20 | hottest tag the asset carries; heat = sector median 24h change scaled to +15% |
+| sector_heat | 0.20 | hottest tag the coin carries; heat = the sector's median 24h change scaled to +15% |
 
-Risk flags: `already_pumped` (score ×0.6, hidden from gems unless
-`include_pumped=true`), `thin_volume`, `micro_cap`, `new_and_unproven`,
-`insufficient_history`, `unranked`. Confidence is `low`/`medium`/`high` from
-history depth (<24h / <72h / ≥72h). The score ranks candidates for review; it
-does not predict outcomes.
+**Risk flags:**
+- `already_pumped`: score ×0.6, and hidden from gems unless `include_pumped=true`
+- `thin_volume`, `micro_cap`, `new_and_unproven`, `insufficient_history`, `unranked`
 
-## Configuration
+**Confidence** follows history depth: under 24h is `low`, under 72h is `medium`, 72h or more is `high`.
 
-All settings are environment variables; `.env.example` documents each one.
-
-| Variable | Default | Notes |
-| --- | --- | --- |
-| `CMC_API_KEY` | | required (unless `CMC_BASE_URL` points at fakecmc) |
-| `PRESET` | `startup` | `free` (top 1000, ~190 credits/day), `startup` (top 3000, ~2.1k/day), `standard` (top 5000, ~7.6k/day) |
-| `X402_PAY_TO` | | your USDC receiving address; required when payments are on |
-| `X402_NETWORK` | `eip155:84532` | Base Sepolia; `eip155:8453` for Base |
-| `X402_FACILITATOR_URL` | `https://x402.org/facilitator` | |
-| `X402_ENABLED` | `true` | `false` serves everything free (local dev) |
-| `PRICE_GEMS` … `PRICE_DIGEST` | $0.01–$0.03 | USD, up to 6 decimals |
-| `HISTORY_FILE` | `/data/history.json.gz` in Docker | empty = memory only |
-| `PUBLIC_URL` | `RENDER_EXTERNAL_URL` | base of the x402 resource URLs |
-
-## Deploy
-
-```sh
-docker build -t 100xaltcoin .
-docker run -p 8080:8080 -v $PWD/data:/data -e CMC_API_KEY=... -e X402_PAY_TO=0x... 100xaltcoin
-```
-
-**Render:** `render.yaml` is a Blueprint (New → Blueprint → this repo). It
-creates the Docker web service with a 1 GB disk at `/data` for the history
-file, and prompts for `CMC_API_KEY` and `X402_PAY_TO`. Use a paid instance;
-the free tier sleeps, which stops polling.
+The only CoinMarketCap call is `/v1/cryptocurrency/listings/latest`, which every
+plan includes (free too), plus the credit-free `/v1/key/info`. The `startup`
+preset uses about 2.1k credits/day; `PRESET=free` fits the 10k/month Basic plan.
+History is saved to `HISTORY_FILE` every 10 minutes and on shutdown, so
+climbers keep working across restarts.
 
 ## Layout
 
-- `cmd/100xaltcoin` — the service; `cmd/fakecmc` — local fake CMC;
-  `cmd/payclient` — pay-and-call test client.
-- `internal/cmc` — rate-limited CMC client (listings/latest, key/info).
-- `internal/market` — tiered poller, snapshot, hourly history ring.
-- `internal/signals` — scoring; `internal/discover` — gems, screen,
-  climbers, sectors, asset, digest.
-- `internal/paywall` — x402 middleware (official `x402-foundation/x402/go` SDK)
-  with facilitator retry and no-charge-on-error.
-- `internal/api` — HTTP routes, pre-payment validation, OpenAPI, docs page.
-- `internal/histfile` — history persistence; `internal/config` — env config.
-
-```sh
-go test ./...
-```
+- **`src/server.ts`:** entry point.
+- **`src/app.ts`:** Hono routes, envelope, errors, docs, OpenAPI.
+- **`src/x402.ts`:** payment middleware (GoPlausible, AVM exact scheme, Bazaar, challenge tag).
+- **`src/endpoints.ts`:** endpoint table, parameter validation, Bazaar schemas.
+- **`src/discover.ts`:** gems, screen, climbers, sectors, asset, digest.
+- **`src/signals.ts`:** scoring and sectors.
+- **`src/market.ts`:** tiered CMC poller, snapshot, hourly history.
+- **`src/cmc.ts`:** CoinMarketCap client.
+- **`src/history-file.ts`:** history persistence.
+- **`src/config.ts`:** environment config.
+- **`scripts/fake-cmc.ts`:** local fake CoinMarketCap.
+- **`scripts/pay.ts`:** pay-and-call client.

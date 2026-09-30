@@ -3,19 +3,20 @@ services:
     name: 100xaltcoin
     runtime: docker
     plan: starter            # paid instance: the free tier sleeps, which stops polling
-    healthCheckPath: /v1/status
+    healthCheckPath: /health
     disk:
       name: history
-      mountPath: /data       # HISTORY_FILE=/data/history.json.gz is set in the Dockerfile
+      mountPath: /data       # HISTORY_FILE=/data/history.json.gz (set in the Dockerfile)
       sizeGB: 1
     envVars:
       - key: CMC_API_KEY
         sync: false
-      - key: X402_PAY_TO
-        sync: false
-      - key: X402_NETWORK
-        value: eip155:84532  # switch to eip155:8453 (Base) with a mainnet facilitator
-      - key: X402_FACILITATOR_URL
-        value: https://x402.org/facilitator
+      - key: PAY_TO_ADDRESS
+        sync: false          # your Algorand address, opted in to USDC (ASA 31566704)
+      - key: ALGORAND_NETWORK
+        value: mainnet
+      - key: FACILITATOR_URL
+        value: https://facilitator.goplausible.xyz
       - key: PRESET
         value: startup
+      # PUBLIC_URL defaults to Render's RENDER_EXTERNAL_URL (https://<name>.onrender.com)

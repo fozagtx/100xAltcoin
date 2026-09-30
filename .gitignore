@@ -1,11 +1,5 @@
-# local config and state
+node_modules/
+dist/
+data/
 .env
-/data/
-
-# binaries
-/100xaltcoin
-/fakecmc
-/payclient
-*.exe
-*.test
-*.out
+*.log

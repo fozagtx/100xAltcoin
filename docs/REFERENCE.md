@@ -222,7 +222,7 @@ AVM_MNEMONIC="25 words ..." npm run pay -- --all https://<your-host>   # pay eve
 npm install
 npm test
 npm run fake-cmc                                                     # fake CoinMarketCap on :8181
-CMC_BASE_URL=http://localhost:8181 X402_ENABLED=false npm run dev    # everything free, no keys
+CMC_BASE_URL=http://localhost:8181 X402_ENABLED=false npm run dev    # everything free
 curl 'localhost:3000/v1/gems?limit=5'
 ```
 

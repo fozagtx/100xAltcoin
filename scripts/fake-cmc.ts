@@ -3,7 +3,7 @@
  * (/v1/cryptocurrency/listings/latest and /v1/key/info). It serves a
  * deterministic universe of ~3500 assets whose prices, volumes and ranks
  * drift with wall-clock time, including a few "runners", so scores, sectors
- * and (after 24h) climbers are non-trivial without an API key.
+ * and (after 24h) climbers are non-trivial when running offline.
  *
  *   npm run fake-cmc            # listens on :8181 (FAKE_CMC_PORT to change)
  */

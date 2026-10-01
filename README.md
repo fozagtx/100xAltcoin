@@ -17,8 +17,8 @@
 Alt402 watches the CoinMarketCap top coins, keeps its own hourly rank history, and scores every
 small cap on four transparent signals. You get a ranked shortlist of early, high-upside candidates,
 each with a 0–100 score, the reasons behind it and its risk flags. It is built for AI agents and
-trading tools: no API key, no account, no subscription. A call costs one to three cents of USDC on
-Algorand, paid with the [x402](https://x402.org) protocol.
+trading tools. A call costs one to three cents of USDC on Algorand, paid with the
+[x402](https://x402.org) protocol.
 
 ## Why Alt402
 
@@ -136,7 +136,7 @@ fee, so the payer only needs USDC and the usual minimum Algorand account balance
 ```sh
 npm install
 npm run fake-cmc                                                     # stand-in CoinMarketCap on :8181
-CMC_BASE_URL=http://localhost:8181 X402_ENABLED=false npm run dev    # everything free, no keys
+CMC_BASE_URL=http://localhost:8181 X402_ENABLED=false npm run dev    # everything free
 curl 'localhost:3000/v1/gems?limit=5'
 ```
 

@@ -437,7 +437,7 @@ pre { background: var(--code); padding: 14px 16px; border-radius: 8px; overflow-
 <body>
 <main>
 <h1><img src="/logo.svg" alt="" width="36" height="36" style="vertical-align:-6px;margin-right:8px">Alt402</h1>
-<p class="lead">Market intelligence for altcoins, built for AI agents. Every call scores the CoinMarketCap top ${cfg.topN} on turnover, rank climb, listing age and sector heat to surface small caps before they move. Paid per call in USDC on Algorand ${esc(cfg.x402.networkName)} with x402: no API key, no signup.</p>
+<p class="lead">Market intelligence for altcoins, built for AI agents. Every call scores the CoinMarketCap top ${cfg.topN} on turnover, rank climb, listing age and sector heat to surface small caps before they move. Paid per call in USDC on Algorand ${esc(cfg.x402.networkName)} with x402.</p>
 <h2>Endpoints</h2>
 <div class="wrap"><table>
 <thead><tr><th>Endpoint</th><th>Price</th><th>Returns</th></tr></thead>

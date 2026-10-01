@@ -1,5 +1,5 @@
 /**
- * Local stand-in for the two CoinMarketCap calls 100xAltcoin makes
+ * Local stand-in for the two CoinMarketCap calls Alt402 makes
  * (/v1/cryptocurrency/listings/latest and /v1/key/info). It serves a
  * deterministic universe of ~3500 assets whose prices, volumes and ranks
  * drift with wall-clock time, including a few "runners", so scores, sectors

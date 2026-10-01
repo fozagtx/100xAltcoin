@@ -1,7 +1,7 @@
 import type { KeyUsage, Quote } from "./types.js";
 
 /**
- * The CoinMarketCap calls 100xAltcoin makes. Only /listings/latest (on every
+ * The CoinMarketCap calls Alt402 makes. Only /listings/latest (on every
  * CMC plan, including the free Basic tier) and the credit-free /key/info are
  * used; every discovery signal is built from listings/latest.
  */

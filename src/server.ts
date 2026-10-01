@@ -108,7 +108,7 @@ if (cfg.x402.enabled) {
 }
 
 const server = serve({ fetch: app.fetch, port: cfg.port }, (info) => {
-  log("info", "100xAltcoin listening", {
+  log("info", "Alt402 listening", {
     port: info.port,
     network: cfg.x402.network,
     network_name: cfg.x402.networkName,

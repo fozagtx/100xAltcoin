@@ -62,7 +62,7 @@ export function testConfig(extra: Record<string, string> = {}): Config {
     CMC_API_KEY: "test",
     ALGORAND_NETWORK: "mainnet",
     PAY_TO_ADDRESS: PAY_TO,
-    PUBLIC_URL: "https://100xaltcoin.example.com",
+    PUBLIC_URL: "https://alt402.example.com",
     ...extra,
   });
 }

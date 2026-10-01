@@ -1,5 +1,5 @@
 /**
- * Calls a paid 100xAltcoin endpoint and pays for it in USDC on Algorand
+ * Calls a paid Alt402 endpoint and pays for it in USDC on Algorand
  * with x402, using the official @x402 client packages.
  *
  *   AVM_MNEMONIC="25 words ..." npm run pay -- https://your-host/v1/gems?limit=5

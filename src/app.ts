@@ -401,13 +401,13 @@ function docsPage(cfg: Config, paid: boolean, version: string) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>100xAltcoin - market intelligence for altcoins, paid per call on Algorand x402</title>
+<title>Alt402 - market intelligence for altcoins, paid per call on Algorand x402</title>
 <meta name="description" content="${esc(SITE_DESCRIPTION)}">
 <link rel="icon" href="/logo.svg" type="image/svg+xml">
 ${cfg.publicUrl ? `<link rel="canonical" href="${esc(cfg.publicUrl)}/">` : ""}
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="100xAltcoin">
-<meta property="og:title" content="100xAltcoin - find 100x altcoins before they move">
+<meta property="og:site_name" content="Alt402">
+<meta property="og:title" content="Alt402 - find 100x altcoins before they move">
 <meta property="og:description" content="${esc(SITE_DESCRIPTION)}">
 ${cfg.publicUrl ? `<meta property="og:url" content="${esc(cfg.publicUrl)}/">\n<meta property="og:image" content="${esc(cfg.publicUrl)}/logo.png">` : ""}
 <meta name="twitter:card" content="summary">
@@ -436,7 +436,7 @@ pre { background: var(--code); padding: 14px 16px; border-radius: 8px; overflow-
 </head>
 <body>
 <main>
-<h1><img src="/logo.svg" alt="" width="36" height="36" style="vertical-align:-6px;margin-right:8px">100xAltcoin</h1>
+<h1><img src="/logo.svg" alt="" width="36" height="36" style="vertical-align:-6px;margin-right:8px">Alt402</h1>
 <p class="lead">Market intelligence for altcoins, built for AI agents. Every call scores the CoinMarketCap top ${cfg.topN} on turnover, rank climb, listing age and sector heat to surface small caps before they move. Paid per call in USDC on Algorand ${esc(cfg.x402.networkName)} with x402: no API key, no signup.</p>
 <h2>Endpoints</h2>
 <div class="wrap"><table>
@@ -472,7 +472,7 @@ const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" 
 <rect width="256" height="256" rx="56" fill="#0b6b4f"/>
 <path d="M44 196 L100 132 L136 160 L212 64" fill="none" stroke="#ffffff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M170 60 L214 60 L214 104" fill="none" stroke="#ffffff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="46" y="92" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700" fill="#b8f5dc">100x</text>
+<text x="42" y="100" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="700" fill="#b8f5dc">402</text>
 </svg>
 `;
 

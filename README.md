@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./docs/assets/hero.png" alt="100xAltcoin: market intelligence for altcoins" />
+  <img src="./docs/assets/hero.png" alt="Alt402: market intelligence for altcoins" />
 </p>
 
 <p align="center">
@@ -10,17 +10,17 @@
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white" />
 </p>
 
-# 100xAltcoin
+# Alt402
 
 **Market intelligence for altcoins: find small caps before they move, one paid call at a time.**
 
-100xAltcoin watches the CoinMarketCap top coins, keeps its own hourly rank history, and scores every
+Alt402 watches the CoinMarketCap top coins, keeps its own hourly rank history, and scores every
 small cap on four transparent signals. You get a ranked shortlist of early, high-upside candidates,
 each with a 0–100 score, the reasons behind it and its risk flags. It is built for AI agents and
 trading tools: no API key, no account, no subscription. A call costs one to three cents of USDC on
 Algorand, paid with the [x402](https://x402.org) protocol.
 
-## Why 100xAltcoin
+## Why Alt402
 
 - **A shortlist, not a firehose.** One request returns the coins worth a look, scored and explained, instead of thousands of rows to sift.
 - **Signals you can read.** Trading turnover, rank climb, listing age and sector heat, each scored 0–100 and shown in the response, with plain-English reasons and risk flags such as `already_pumped` and `micro_cap`.

@@ -9,7 +9,7 @@ import type { MiddlewareHandler } from "hono";
 import { CHALLENGE_TAG, type Config } from "./config.js";
 import { ENDPOINTS, paramSchema } from "./endpoints.js";
 
-export const SERVICE_NAME = "100xAltcoin";
+export const SERVICE_NAME = "Alt402";
 // The x402 resource schema allows at most 5 tags of up to 32 printable ASCII characters each.
 export const DISCOVERY_TAGS = ["crypto", "altcoins", "market-intelligence", "ai-agents", "algorand"];
 export const MERCHANT_CATEGORIES = ["crypto", "market-intelligence", "ai-agents", "x402"];

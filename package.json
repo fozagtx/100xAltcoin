@@ -1,8 +1,8 @@
 {
-  "name": "100xaltcoin",
+  "name": "alt402",
   "version": "1.0.0",
   "private": true,
-  "description": "100xAltcoin: market intelligence for altcoins, paid per call on Algorand x402. Finds small caps with 100x potential before they move.",
+  "description": "Alt402: market intelligence for altcoins, paid per call on Algorand x402. Finds small caps with 100x potential before they move.",
   "type": "module",
   "license": "MIT",
   "engines": {

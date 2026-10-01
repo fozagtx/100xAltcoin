@@ -1,5 +1,5 @@
 /**
- * Checks a running 100xAltcoin deployment against the Global x402 Challenge
+ * Checks a running Alt402 deployment against the Global x402 Challenge
  * requirements without paying anything:
  *
  *   npm run check -- https://your-service.onrender.com

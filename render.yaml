@@ -1,5 +1,6 @@
 services:
   - type: web
+    # Keep this name: it identifies the existing service, and the competition needs one stable domain.
     name: 100xaltcoin
     runtime: docker
     plan: starter            # paid instance: the free tier sleeps, which stops polling

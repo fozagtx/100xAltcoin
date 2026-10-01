@@ -1,6 +1,6 @@
-# 100xAltcoin reference
+# Alt402 reference
 
-The full reference for [100xAltcoin](../README.md): every endpoint and parameter, how the score is
+The full reference for [Alt402](../README.md): every endpoint and parameter, how the score is
 built, where the data comes from, how payment works, configuration and operations.
 
 - [API](#api) · [How the score works](#how-the-score-works) · [Where the data comes from](#where-the-data-comes-from)
@@ -282,7 +282,7 @@ All settings are environment variables; `.env.example` documents each one.
 
 ## Global x402 Challenge
 
-100xAltcoin is a **Composite** entry in the
+Alt402 is a **Composite** entry in the
 [Algorand Global x402 Challenge](https://algorand.co/global-x402-challenge): six paid routes sharing
 one `payTo` address and one domain, so their volume rolls up into one merchant on the leaderboard.
 Every payment option carries `extra.tag = "x402-global-challenge"`, each route declares the Bazaar

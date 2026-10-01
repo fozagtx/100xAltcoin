@@ -46,7 +46,7 @@ function setup(market = stubMarket(), network: string = ALGORAND_MAINNET) {
 const decode = (h: string | null) => JSON.parse(Buffer.from(h ?? "", "base64").toString("utf8"));
 
 async function paymentFor(app: ReturnType<typeof setup>["app"], path: string) {
-  const res = await app.request(`https://100xaltcoin.example.com${path}`);
+  const res = await app.request(`https://alt402.example.com${path}`);
   const required = decode(res.headers.get("PAYMENT-REQUIRED"));
   // A syntactically complete x402 v2 AVM payload; the fake facilitator accepts it.
   const payload = {
@@ -63,19 +63,19 @@ describe("x402 on Algorand", () => {
   it("answers every unpaid paid-route call with 402 and challenge-ready requirements", async () => {
     const { app, fac } = setup();
     for (const path of ["/v1/gems", "/v1/screen", "/v1/climbers", "/v1/sectors", "/v1/asset", "/v1/digest"]) {
-      const res = await app.request(`https://100xaltcoin.example.com${path}`);
+      const res = await app.request(`https://alt402.example.com${path}`);
       expect(res.status, path).toBe(402);
       const body = await res.json();
       expect(body.error.code).toBe("payment_required");
       const req = decode(res.headers.get("PAYMENT-REQUIRED"));
       expect(req.x402Version).toBe(2);
-      expect(req.resource.url).toBe(`https://100xaltcoin.example.com${path}`);
+      expect(req.resource.url).toBe(`https://alt402.example.com${path}`);
       const opt = req.accepts[0];
       expect(opt).toMatchObject({ scheme: "exact", network: ALGORAND_MAINNET, asset: "31566704", payTo: PAY_TO });
       expect(opt.extra.tag).toBe(CHALLENGE_TAG);
       expect(req.extensions.bazaar.info.input.method).toBe("GET");
     }
-    const gems = decode((await app.request("https://100xaltcoin.example.com/v1/gems")).headers.get("PAYMENT-REQUIRED"));
+    const gems = decode((await app.request("https://alt402.example.com/v1/gems")).headers.get("PAYMENT-REQUIRED"));
     expect(gems.accepts[0].amount).toBe("20000"); // $0.02 in 6-decimal USDC
     expect(fac.calls.verify).toBe(0);
   });
@@ -83,7 +83,7 @@ describe("x402 on Algorand", () => {
   it("verifies, serves and settles a paid call", async () => {
     const { app, fac } = setup();
     const sig = await paymentFor(app, "/v1/gems?limit=2");
-    const res = await app.request("https://100xaltcoin.example.com/v1/gems?limit=2", { headers: { "PAYMENT-SIGNATURE": sig } });
+    const res = await app.request("https://alt402.example.com/v1/gems?limit=2", { headers: { "PAYMENT-SIGNATURE": sig } });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toHaveLength(2);
@@ -96,7 +96,7 @@ describe("x402 on Algorand", () => {
     const { app, fac } = setup();
     for (const path of ["/v1/asset?asset=doesnotexist", "/v1/gems?limit=500", "/v1/climbers"]) {
       const sig = await paymentFor(app, path);
-      const res = await app.request(`https://100xaltcoin.example.com${path}`, { headers: { "PAYMENT-SIGNATURE": sig } });
+      const res = await app.request(`https://alt402.example.com${path}`, { headers: { "PAYMENT-SIGNATURE": sig } });
       expect(res.status, path).toBeGreaterThanOrEqual(400);
     }
     expect(fac.calls.settle).toBe(0);
@@ -105,10 +105,10 @@ describe("x402 on Algorand", () => {
   it("keeps the free routes free", async () => {
     const { app, fac } = setup();
     for (const path of ["/", "/health", "/v1/status", "/v1/openapi.json", "/.well-known/x402", "/llms.txt"]) {
-      const res = await app.request(`https://100xaltcoin.example.com${path}`);
+      const res = await app.request(`https://alt402.example.com${path}`);
       expect(res.status, path).toBe(200);
     }
-    const manifest = await (await app.request("https://100xaltcoin.example.com/.well-known/x402")).json();
+    const manifest = await (await app.request("https://alt402.example.com/.well-known/x402")).json();
     expect(manifest.tags).toContain(CHALLENGE_TAG);
     expect(manifest.resources).toHaveLength(6);
     expect(fac.calls.verify).toBe(0);
@@ -117,11 +117,11 @@ describe("x402 on Algorand", () => {
   it("uses the network id exactly as the facilitator advertises it", async () => {
     for (const advertised of [ALGORAND_MAINNET, MAINNET_FULL]) {
       const { app, fac } = setup(stubMarket(), advertised);
-      const res = await app.request("https://100xaltcoin.example.com/v1/gems");
+      const res = await app.request("https://alt402.example.com/v1/gems");
       expect(res.status).toBe(402);
       expect(decode(res.headers.get("PAYMENT-REQUIRED")).accepts[0].network).toBe(advertised);
       const sig = await paymentFor(app, "/v1/gems");
-      const paid = await app.request("https://100xaltcoin.example.com/v1/gems", { headers: { "PAYMENT-SIGNATURE": sig } });
+      const paid = await app.request("https://alt402.example.com/v1/gems", { headers: { "PAYMENT-SIGNATURE": sig } });
       expect(paid.status).toBe(200);
       expect(fac.calls.settle).toBe(1);
     }
@@ -133,54 +133,54 @@ describe("x402 on Algorand", () => {
     let down = true;
     const flaky = { ...fac.client, getSupported: async () => { if (down) throw new Error("ECONNREFUSED"); return fac.client.getSupported(); } } as typeof fac.client;
     const app = createApp({ config: cfg, market: stubMarket(), payments: createPayments(cfg, flaky), now: () => NOW });
-    const res = await app.request("https://100xaltcoin.example.com/v1/gems");
+    const res = await app.request("https://alt402.example.com/v1/gems");
     expect(res.status).toBe(503);
     expect((await res.json()).error.code).toBe("facilitator_unavailable");
     down = false;
-    expect((await app.request("https://100xaltcoin.example.com/v1/gems")).status).toBe(402);
+    expect((await app.request("https://alt402.example.com/v1/gems")).status).toBe(402);
   });
 
   it("serves the metadata the Bazaar reads", async () => {
     const { app } = setup();
-    const page = await (await app.request("https://100xaltcoin.example.com/")).text();
+    const page = await (await app.request("https://alt402.example.com/")).text();
     expect(page).toContain('<meta name="description"');
     expect(page).toContain('og:image');
-    const logo = await app.request("https://100xaltcoin.example.com/logo.svg");
+    const logo = await app.request("https://alt402.example.com/logo.svg");
     expect(logo.headers.get("content-type")).toContain("image/svg+xml");
-    const card = await (await app.request("https://100xaltcoin.example.com/.well-known/agent-card.json")).json();
+    const card = await (await app.request("https://alt402.example.com/.well-known/agent-card.json")).json();
     expect(card.skills).toHaveLength(6);
     for (const path of ["/robots.txt", "/sitemap.xml", "/openapi.json"]) {
-      expect((await app.request(`https://100xaltcoin.example.com${path}`)).status, path).toBe(200);
+      expect((await app.request(`https://alt402.example.com${path}`)).status, path).toBe(200);
     }
-    const req = decode((await app.request("https://100xaltcoin.example.com/v1/gems")).headers.get("PAYMENT-REQUIRED"));
-    expect(req.resource.serviceName ?? "100xAltcoin").toBe("100xAltcoin");
+    const req = decode((await app.request("https://alt402.example.com/v1/gems")).headers.get("PAYMENT-REQUIRED"));
+    expect(req.resource.serviceName ?? "Alt402").toBe("Alt402");
   });
 
   it("follows the x402 resource schema limits and declares the merchant identity", async () => {
     const { app } = setup();
     for (const path of ["/v1/gems", "/v1/screen", "/v1/climbers", "/v1/sectors", "/v1/asset", "/v1/digest"]) {
-      const req = decode((await app.request(`https://100xaltcoin.example.com${path}`)).headers.get("PAYMENT-REQUIRED"));
+      const req = decode((await app.request(`https://alt402.example.com${path}`)).headers.get("PAYMENT-REQUIRED"));
       expect(req.resource.tags.length, path).toBeLessThanOrEqual(5);
       expect(req.resource.tags.every((t: string) => t.length <= 32)).toBe(true);
-      expect(req.resource.serviceName).toBe("100xAltcoin");
-      expect(req.resource.iconUrl).toBe("https://100xaltcoin.example.com/logo.png");
+      expect(req.resource.serviceName).toBe("Alt402");
+      expect(req.resource.iconUrl).toBe("https://alt402.example.com/logo.png");
       expect(ResourceInfoSchema.safeParse(req.resource).success, path).toBe(true);
-      expect(req.extensions["x402-merchant"].info).toMatchObject({ name: "100xAltcoin", website: "https://100xaltcoin.example.com", logo: "https://100xaltcoin.example.com/logo.png" });
+      expect(req.extensions["x402-merchant"].info).toMatchObject({ name: "Alt402", website: "https://alt402.example.com", logo: "https://alt402.example.com/logo.png" });
       expect(validateDiscoveryExtension(req.extensions.bazaar).valid, path).toBe(true);
     }
   });
 
   it("refuses HEAD on paid routes instead of answering a free 200", async () => {
     const { app } = setup();
-    const head = await app.request("https://100xaltcoin.example.com/v1/gems", { method: "HEAD" });
+    const head = await app.request("https://alt402.example.com/v1/gems", { method: "HEAD" });
     expect(head.status).toBe(405);
     expect(head.headers.get("allow")).toContain("GET");
-    expect((await app.request("https://100xaltcoin.example.com/v1/status", { method: "HEAD" })).status).toBe(200);
+    expect((await app.request("https://alt402.example.com/v1/status", { method: "HEAD" })).status).toBe(200);
   });
 
   it("serves a PNG logo for the merchant page", async () => {
     const { app } = setup();
-    const res = await app.request("https://100xaltcoin.example.com/logo.png");
+    const res = await app.request("https://alt402.example.com/logo.png");
     expect(res.headers.get("content-type")).toBe("image/png");
     const bytes = new Uint8Array(await res.arrayBuffer());
     expect(Array.from(bytes.slice(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47]);
@@ -198,17 +198,17 @@ describe("x402 on Algorand", () => {
     let calls = 0;
     const blip = { ...fac.client, getSupported: async () => { calls++; if (calls === 2) throw new Error("ECONNRESET"); return fac.client.getSupported(); } } as typeof fac.client;
     const app = createApp({ config: cfg, market: stubMarket(), payments: createPayments(cfg, blip), now: () => NOW });
-    const first = await app.request("https://100xaltcoin.example.com/v1/gems");
+    const first = await app.request("https://alt402.example.com/v1/gems");
     expect(first.status).toBe(503);
     expect((await first.json()).error.code).toBe("facilitator_unavailable");
-    expect((await app.request("https://100xaltcoin.example.com/v1/gems")).status).toBe(402);
+    expect((await app.request("https://alt402.example.com/v1/gems")).status).toBe(402);
   });
 
   it("prices and serves the trailing-slash form of a paid route", async () => {
     const { app, fac } = setup();
-    expect((await app.request("https://100xaltcoin.example.com/v1/gems/")).status).toBe(402);
+    expect((await app.request("https://alt402.example.com/v1/gems/")).status).toBe(402);
     const sig = await paymentFor(app, "/v1/gems/?limit=1");
-    const res = await app.request("https://100xaltcoin.example.com/v1/gems/?limit=1", { headers: { "PAYMENT-SIGNATURE": sig } });
+    const res = await app.request("https://alt402.example.com/v1/gems/?limit=1", { headers: { "PAYMENT-SIGNATURE": sig } });
     expect(res.status).toBe(200);
     expect(fac.calls.settle).toBe(1);
   });
@@ -216,7 +216,7 @@ describe("x402 on Algorand", () => {
   it("keeps route descriptions ASCII (the AVM paywall page base64-encodes them with btoa)", async () => {
     const { app } = setup();
     for (const path of ["/v1/gems", "/v1/screen", "/v1/climbers", "/v1/sectors", "/v1/asset", "/v1/digest"]) {
-      const req = decode((await app.request(`https://100xaltcoin.example.com${path}`)).headers.get("PAYMENT-REQUIRED"));
+      const req = decode((await app.request(`https://alt402.example.com${path}`)).headers.get("PAYMENT-REQUIRED"));
       expect(/^[\x20-\x7e]*$/.test(req.resource.description), path).toBe(true);
     }
   });

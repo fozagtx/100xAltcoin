@@ -131,6 +131,38 @@ x402 v2, `exact` scheme, USDC (ASA `31566704`) on Algorand MainNet, verified and
 [GoPlausible facilitator](https://facilitator.goplausible.xyz). The facilitator pays the network
 fee, so the payer only needs USDC and the usual minimum Algorand account balance.
 
+## Verified MainNet transactions
+
+An end-to-end test run against the live service on 2026-10-01, from a fresh paying wallet to a
+settled x402 payment. Every transaction is on Algorand MainNet and can be checked on
+[allo.info](https://allo.info).
+
+| Step | Transaction | Round | From → To | Amount |
+| --- | --- | --- | --- | --- |
+| Fund paying wallet | [`GQ2LIKSH…DTSA`](https://allo.info/tx/GQ2LIKSHHXO5UMVVPDRTO4DUMERTPQITZCERBFYTZDAUQ6CKDTSA) | 65555663 | `3T2B…GMQ` → `OWYJ…SWU` | 0.5 ALGO |
+| USDC opt-in (`npm run wallet -- optin`) | [`YQFPYEKK…DYTQ`](https://allo.info/tx/YQFPYEKKU5DEJMXCYYUFLGCSYMEN4QKFGDGDYK5XXDAN4OPADYTQ) | 65555671 | `OWYJ…SWU` → self | 0 USDC (ASA 31566704) |
+| Fund with USDC | [`VUFPDXMN…ILEQ`](https://allo.info/tx/VUFPDXMNRH37VJHRPAMWOBTMPF6HMFA2FKWA3NLSOLRBLOBMILEQ) | 65555704 | `3T2B…GMQ` → `OWYJ…SWU` | 1 USDC |
+| **x402 payment for `/v1/digest`** (`npm run pay`) | [`UP2PDGGE…67OA`](https://allo.info/tx/UP2PDGGE2VN62FYUIM4YK5376J32VLX3DL672PCLB2VL2HOO67OA) | 65555722 | `OWYJ…SWU` → `3T2B…GMQ` | 0.03 USDC |
+
+- Paying wallet: `OWYJYI2PFRIDSLW2V3S6QWVA4US52RVEP3F4SAQ5SKY3OFKANKRAH7ASWU`
+- Payout wallet (`PAY_TO_ADDRESS`): `3T2BV6Y2LTBDKYEVQILQEUEB2H4U47YGYMK54N2PJRK2AJIX6OQX3QHGMQ`
+- The payment transaction has a zero fee and sits in an atomic group: the GoPlausible facilitator
+  covered the network fee, so the payer's ALGO balance did not move.
+- Payout wallet USDC: 0.243178 before → 0.273178 after (+0.03). Paying wallet: 1.00 → 0.97.
+
+The paid call itself answered `HTTP 200` with the digest JSON and this `PAYMENT-RESPONSE`:
+
+```json
+{"success":true,"payer":"OWYJYI2PFRIDSLW2V3S6QWVA4US52RVEP3F4SAQ5SKY3OFKANKRAH7ASWU","transaction":"UP2PDGGE2VN62FYUIM4YK5376J32VLX3DL672PCLB2VL2HOO67OA","network":"algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8="}
+```
+
+`npm run check -- https://one00xaltcoin.onrender.com` passed every check on all six paid routes
+before the payment was made:
+
+<p align="center">
+  <img src="./docs/assets/check-passed.png" alt="npm run check: every check passes on the live service" width="800" />
+</p>
+
 ## Run your own
 
 ```sh

@@ -1,8 +1,8 @@
 # 100xAltcoin
 
-**Find small-cap altcoins before they move, one paid API call at a time.**
+**Market intelligence for altcoins: find small caps before they move, one paid call at a time.**
 
-100xAltcoin is a pay-per-call market-data API for AI agents and trading tools. It watches the
+100xAltcoin gives AI agents and trading tools market intelligence on altcoins, paid per call. It watches the
 CoinMarketCap top coins, keeps its own hourly rank history, and scores every small cap on four
 transparent signals (trading turnover, rank climb, listing age and sector heat). You get a ranked
 shortlist of early, high-upside candidates, each with a 0–100 score, the reasons behind it and its
@@ -12,7 +12,7 @@ Calls cost one to three cents of USDC on Algorand, paid with the [x402](https://
 protocol. There is no API key, no account and no subscription: an agent that holds a little USDC
 can call it straight away.
 
-> Market data for information only, not financial advice. The score ranks candidates for review;
+> Market intelligence for information only, not financial advice. The score ranks candidates for review;
 > it does not predict prices.
 
 ## What problem it solves
@@ -59,7 +59,7 @@ All responses share one envelope:
   "as_of": "2026-10-01T09:14:00Z",
   "age_seconds": 41,
   "source": "coinmarketcap",
-  "note": "Market data for information only, not financial advice.",
+  "note": "Market intelligence for information only, not financial advice.",
   "history_hours": 36,
   "data": [ ... ],
   "warnings": [ { "code": "insufficient_history", "message": "..." } ]

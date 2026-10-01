@@ -11,8 +11,8 @@ import { ENDPOINTS, paramSchema } from "./endpoints.js";
 
 export const SERVICE_NAME = "100xAltcoin";
 // The x402 resource schema allows at most 5 tags of up to 32 printable ASCII characters each.
-export const DISCOVERY_TAGS = ["crypto", "altcoins", "market-data", "ai-agents", "algorand"];
-export const MERCHANT_CATEGORIES = ["crypto", "market-data", "ai-agents", "x402"];
+export const DISCOVERY_TAGS = ["crypto", "altcoins", "market-intelligence", "ai-agents", "algorand"];
+export const MERCHANT_CATEGORIES = ["crypto", "market-intelligence", "ai-agents", "x402"];
 
 /** The x402-merchant identity extension (info plus a JSON Schema for it, per the x402 v2 extension format). */
 export function merchantExtension(publicUrl: string) {

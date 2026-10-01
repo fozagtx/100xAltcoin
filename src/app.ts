@@ -15,7 +15,7 @@ import type { Snapshot } from "./market.js";
 import { LOGO_PNG } from "./logo.js";
 import { DISCOVERY_TAGS, SERVICE_NAME, type Payments } from "./x402.js";
 
-const DISCLAIMER = "Market data for information only, not financial advice.";
+const DISCLAIMER = "Market intelligence for information only, not financial advice.";
 
 export interface AppMarket extends MarketView {
   ready(): boolean;
@@ -301,7 +301,7 @@ function x402Manifest(cfg: Config, network: string) {
   return {
     version: 1,
     name: SERVICE_NAME,
-    description: "Pay-per-call altcoin discovery: find small caps with 100x potential before they move.",
+    description: "Market intelligence for altcoins: find small caps with 100x potential before they move.",
     x402Version: 2,
     network,
     asset: cfg.x402.usdcAssetId,
@@ -325,7 +325,7 @@ function llmsTxt(cfg: Config, network: string) {
   const lines = [
     `# ${SERVICE_NAME}`,
     "",
-    "> Pay-per-call altcoin discovery for AI agents on Algorand x402. Finds small-cap coins with 100x potential before they move, scored on turnover, rank climb, listing age and sector heat from CoinMarketCap data.",
+    "> Market intelligence for altcoins, built for AI agents and paid per call on Algorand x402. Finds small-cap coins with 100x potential before they move, scored on turnover, rank climb, listing age and sector heat from CoinMarketCap data.",
     "",
     `Payment: x402 v2, exact scheme, USDC (ASA ${cfg.x402.usdcAssetId}) on ${network}. Unpaid calls return 402 with a PAYMENT-REQUIRED header. Errors are never charged.`,
     "",
@@ -368,7 +368,7 @@ function openApi(cfg: Config, version: string, network: string) {
     info: {
       title: SERVICE_NAME,
       version,
-      description: "Pay-per-call altcoin discovery for AI agents on Algorand x402. Market data for information only, not financial advice.",
+      description: "Market intelligence for altcoins, built for AI agents and paid per call on Algorand x402. Market intelligence for information only, not financial advice.",
     },
     ...(cfg.publicUrl ? { servers: [{ url: cfg.publicUrl }] } : {}),
     paths,
@@ -401,7 +401,7 @@ function docsPage(cfg: Config, paid: boolean, version: string) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>100xAltcoin - pay-per-call altcoin discovery on Algorand x402</title>
+<title>100xAltcoin - market intelligence for altcoins, paid per call on Algorand x402</title>
 <meta name="description" content="${esc(SITE_DESCRIPTION)}">
 <link rel="icon" href="/logo.svg" type="image/svg+xml">
 ${cfg.publicUrl ? `<link rel="canonical" href="${esc(cfg.publicUrl)}/">` : ""}
@@ -437,7 +437,7 @@ pre { background: var(--code); padding: 14px 16px; border-radius: 8px; overflow-
 <body>
 <main>
 <h1><img src="/logo.svg" alt="" width="36" height="36" style="vertical-align:-6px;margin-right:8px">100xAltcoin</h1>
-<p class="lead">Pay-per-call altcoin discovery for AI agents. Every call scores the CoinMarketCap top ${cfg.topN} on turnover, rank climb, listing age and sector heat to surface small caps before they move. Paid per call in USDC on Algorand ${esc(cfg.x402.networkName)} with x402: no API key, no signup.</p>
+<p class="lead">Market intelligence for altcoins, built for AI agents. Every call scores the CoinMarketCap top ${cfg.topN} on turnover, rank climb, listing age and sector heat to surface small caps before they move. Paid per call in USDC on Algorand ${esc(cfg.x402.networkName)} with x402: no API key, no signup.</p>
 <h2>Endpoints</h2>
 <div class="wrap"><table>
 <thead><tr><th>Endpoint</th><th>Price</th><th>Returns</th></tr></thead>
@@ -459,14 +459,14 @@ const pay = wrapFetchWithPaymentFromConfig(fetch, {
 const res = await pay("${esc(base)}/v1/gems?limit=5");
 console.log(await res.json());</pre>
 <p class="muted">Or from this repo: <code>npm run pay -- ${esc(base)}/v1/gems</code> with <code>AVM_MNEMONIC</code> set.</p>
-<p class="muted">Version ${esc(version)}. Market data for information only, not financial advice.</p>
+<p class="muted">Version ${esc(version)}. Market intelligence for information only, not financial advice.</p>
 </main>
 </body>
 </html>`;
 }
 
 export const SITE_DESCRIPTION =
-  "Pay-per-call altcoin discovery for AI agents: 100x candidate scores, coin screener, 24h rank climbers, hot sectors and coin scorecards from CoinMarketCap data, paid in USDC on Algorand with x402.";
+  "Market intelligence for altcoins, built for AI agents: 100x candidate scores, coin screener, 24h rank climbers, hot sectors and coin scorecards from CoinMarketCap data, paid in USDC on Algorand with x402.";
 
 const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
 <rect width="256" height="256" rx="56" fill="#0b6b4f"/>

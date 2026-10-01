@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./docs/assets/hero.png" alt="Alt402: market intelligence for altcoins" />
+  <img src="./docs/assets/check-passed.png" alt="npm run check: every x402 check passes on the live Alt402 service" />
 </p>
 
 <p align="center">
@@ -157,11 +157,7 @@ The paid call itself answered `HTTP 200` with the digest JSON and this `PAYMENT-
 ```
 
 `npm run check -- https://one00xaltcoin.onrender.com` passed every check on all six paid routes
-before the payment was made:
-
-<p align="center">
-  <img src="./docs/assets/check-passed.png" alt="npm run check: every check passes on the live service" width="800" />
-</p>
+before the payment was made (see the screenshot at the top of this page).
 
 ## Run your own
 
